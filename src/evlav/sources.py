@@ -1,14 +1,13 @@
 import logging
 import os
 import re
-import subprocess
 import tarfile
 from typing import NamedTuple
 import shlex
 
 from .index import Repository, Update, get_name_from_update
 
-INTERNAL_CHECK = "git@gitlab.internal.steamos.cloud"
+INTERNAL_CHECK = "internal.steamos.cloud"
 PARALLEL_PULLS = 8
 
 logging.basicConfig(level=logging.DEBUG)
@@ -34,6 +33,23 @@ def srun(cmd: list[str]):
     return result.stdout.strip()
 
 
+def infer_name(fn: str) -> str | None:
+    # Try to infer package name from fn, otherwise find first dir
+    # Structure of name is <name>-<version>-<release>.src.tar.gz
+    # Example: jupiter-3.7.0-1.src.tar.gz
+    fn = os.path.basename(fn)
+    idx = -1
+    for _ in range(2):
+        idx = fn.rfind("-", 0, idx)
+        if idx == -1:
+            break
+        fn = fn[:idx]
+    if idx != -1:
+        return fn
+
+    return None
+
+
 def extract_sources(fn: str) -> Sources | None:
     # File is a .tar.gz archive containing a 'PKGBUILD' file
     # The PKGBUILD is a bash script that contains a sources variable
@@ -44,17 +60,7 @@ def extract_sources(fn: str) -> Sources | None:
         # Try to infer package name from fn, otherwise find first dir
         # Structure of name is <name>-<version>-<release>.src.tar.gz
         # Example: jupiter-3.7.0-1.src.tar.gz
-        fn = os.path.basename(fn)
-        idx = -1
-        for _ in range(2):
-            idx = fn.rfind("-", 0, idx)
-            if idx == -1:
-                break
-            fn = fn[:idx]
-        if idx != -1:
-            pkgname = fn
-        else:
-            pkgname = None
+        pkgname = infer_name(fn)
 
         if not pkgname:
             logger.warning(f"Could not infer package name from filename {fn}")
@@ -76,7 +82,7 @@ def extract_sources(fn: str) -> Sources | None:
         )
         if not matches:
             logger.warning(f"No sources found in PKGBUILD {fn}")
-            return None
+            return Sources(pkgname, files=[], repos=[], pkgbuild=pkgbuild)
 
         sources = shlex.split(matches[0], comments=True)
 
@@ -84,11 +90,16 @@ def extract_sources(fn: str) -> Sources | None:
         repos = []
         for src in sources:
             # Check for git
-            if src.startswith("git+"):
-                repo = src.split("#", 1)[0]
-                repo_name = repo.split("/")[-1].replace(".git", "")
-                if INTERNAL_CHECK in repo:
-                    repos.append((repo_name, repo))
+            if "git+" in src:
+                if "::" in src and "${pkgname%-git}::" not in src:
+                    repo_name = src.split("::", 1)[0]
+                else:
+                    repo_name = src.split("#", 1)[0].split("/")[-1].replace(".git", "")
+
+                repo_name = repo_name.replace("$_srcname", pkgname)
+
+                if INTERNAL_CHECK in src:
+                    repos.append((repo_name, src))
             elif (
                 src
                 and "::" not in src
@@ -327,7 +338,18 @@ def process_update(
     upd_text = generate_upd_text(repo, upd, added)
     print(f"Update ({i:04d}/{total}): {upd_text}\n")
     srun(["git", "-C", repo_path, "add", "."])
-    srun(["git", "-C", repo_path, "commit", "-m", upd_text, "--date", upd.date.isoformat()])
+    srun(
+        [
+            "git",
+            "-C",
+            repo_path,
+            "commit",
+            "-m",
+            upd_text,
+            "--date",
+            upd.date.isoformat(),
+        ]
+    )
     srun(["git", "-C", repo_path, "tag", tag_name])
 
     if (i + 1) % 1 == 0 or i + 1 == total:
@@ -371,3 +393,26 @@ def process_repo(
         )
 
     download_missing(missing)
+
+
+if __name__ == "__main__":
+    # Find out which repos we need to push
+    import sys
+
+    repos = {}
+    seen = set()
+    fns = os.listdir(sys.argv[1])
+    for i, fn in enumerate(fns):
+        if fn.endswith(".src.tar.gz") and infer_name(fn) not in seen:
+            src = extract_sources(os.path.join(sys.argv[1], fn))
+            if not src:
+                continue
+            print(f"Package ({i:04d}/{len(fns)}): {fn}")
+
+            for name, url in src.repos:
+                print(f"  Repo: {name} -> {url}")
+            repos.update(src.repos)
+            seen.add(src.pkg)
+
+    for name, url in repos.items():
+        print(f"Repo: {name} -> {url}")
