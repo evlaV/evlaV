@@ -6,6 +6,8 @@ prepare_repo() {
         echo "Repository $1 already exists."
     else
         git init "$REMOTE/$1"
+        git -C "$REMOTE/$1" commit --allow-empty -m "Initial commit"
+        git -C "$REMOTE/$1" tag initial
     fi
 }
 
