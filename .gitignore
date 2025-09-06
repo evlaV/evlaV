@@ -1,0 +1,5 @@
+repositories
+sources
+venv
+*.egg-info
+__pycache__
