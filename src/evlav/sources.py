@@ -1,6 +1,8 @@
+import logging
+import os
 from typing import NamedTuple
 
-import logging
+from .index import Repository, Update, get_name_from_update
 
 INTERNAL_CHECK = "git@gitlab.internal.steamos.cloud"
 
@@ -19,8 +21,8 @@ def extract_sources(fn: str) -> Sources | None:
     # The PKGBUILD is a bash script that contains a sources variable
     # The sources variable consists of files (protocol file://) and
     # repos. For repos, we only care to preserve steamos ones
-    import tarfile
     import re
+    import tarfile
 
     with tarfile.open(fn, "r:gz") as tar:
         # Try to infer package name from fn, otherwise find first dir
@@ -84,12 +86,59 @@ def extract_sources(fn: str) -> Sources | None:
 
         return Sources(pkgname, files=files, repos=repos)
 
-import os
 
-chkdir = "repositories/jupiter-3.7"
-for fn in os.listdir(chkdir):
-    if fn.endswith(".src.tar.gz"):
-        try:
-            print(extract_sources(chkdir + "/" + fn))
-        except Exception as e:
-            logger.error(f"Error processing {fn}: {e}")
+def prepare_repo(repo: str, work: str, remote: str):
+    import shutil
+
+    if os.path.exists(work):
+        shutil.rmtree(work)
+    os.makedirs(work, exist_ok=True)
+
+    if not os.path.exists(os.path.join(work, repo)):
+        r = os.system(f"git clone {remote}/{repo} {work}/{repo}")
+    else:
+        r = os.system(f"git -C {work}/{repo} pull")
+
+    if r != 0:
+        raise RuntimeError(f"Failed to prepare repository {repo} in {work}")
+
+
+def get_tags(repo_path: str) -> list[str]:
+    import subprocess
+
+    result = subprocess.run(
+        ["git", "-C", repo_path, "tag"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    tags = result.stdout.strip().split("\n")
+    return tags
+
+
+def get_upd_todo(
+    tags: list[str], latest: Update, branch_version: str, trunk_version: str | None
+) -> list[Update]:
+    todo = []
+    curr = latest
+
+    while curr:
+        name = get_name_from_update(branch_version, curr)
+        if name in tags:
+            break
+        if trunk_version:
+            name = get_name_from_update(trunk_version, curr)
+            if name in tags:
+                break
+        todo.append(curr)
+        curr = curr.prev
+
+    todo.reverse()
+    return todo
+
+
+def process_repo(
+    repo: Repository, trunk_version: str | None, cache: str, tags: list[str]
+):
+    for upd in get_upd_todo(tags, repo.latest, repo.version, trunk_version):
+        print(get_name_from_update(repo.version, upd))

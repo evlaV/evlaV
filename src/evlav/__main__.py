@@ -1,6 +1,8 @@
 import argparse
 
 from .index import get_repos
+from .sources import prepare_repo, get_tags, process_repo
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -33,10 +35,18 @@ def main():
         help="Path to the cache directory. This will be where all the src packages and index files are stored.",
     )
     parser.add_argument(
-        "-r", "--remote",
+        "-r",
+        "--remote",
         type=str,
-        default="./repositories",
+        default="./remote",
         help="Path to the output remote. This will be where all the versioned repositories are stored. Can be a local path or a github org.",
+    )
+    parser.add_argument(
+        "-w",
+        "--work",
+        type=str,
+        default="./work",
+        help="Path to a local scratch directory for processing repositories.",
     )
     parser.add_argument(
         "--skip-existing",
@@ -45,6 +55,16 @@ def main():
     )
     args = parser.parse_args()
 
+    remote = args.remote
+    if remote.startswith("./"):
+        # expand relative path
+        import os
+
+        remote = os.path.abspath(remote)
+
+    prepare_repo(args.repo, args.work, remote)
+    tags = get_tags(f"{args.work}/{args.repo}")
+
     trunk, *repos = get_repos(
         repo=args.repo,
         versions=args.version,
@@ -52,7 +72,11 @@ def main():
         cache=args.cache,
         skip_existing=args.skip_existing,
     )
-    print(trunk, repos)
+
+    process_repo(trunk, None, args.cache, tags)
+    for repo in repos:
+        process_repo(repo, trunk_version=trunk.version, cache=args.cache, tags=tags)
+
 
 if __name__ == "__main__":
     main()

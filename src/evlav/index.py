@@ -23,11 +23,7 @@ class Repository(NamedTuple):
     name: str
     version: str
     url: str
-    timeline: tuple[Update, ...]
-
-    def __repr__(self) -> str:
-        return f"Repository({self.name}, {self.version}, {self.url}, {len(self.timeline)} updates)"
-
+    latest: Update
 
 class IndexParser(HTMLParser):
 
@@ -152,12 +148,15 @@ def process_index(data: BufferedReader):
     return timeline
 
 
-def viz_timeline(timeline: list[Update], name: str = ""):
-    prefix = f"{name}-" if name else ""
+def get_name_from_update(name: str, update: Update) -> str:
+    date_str = update.date.strftime("%y%m%d-%H%MZ")
+    return f"{name}-{date_str}" if name else date_str
 
+
+def viz_timeline(timeline: list[Update], name: str = ""):
     for update in timeline:
         print(
-            f"{prefix}{update.date.strftime("%y%m%d-%H%MZ")}: {update.size / 1024**2:.2f} MiB in {len(update.packages)} packages"
+            f"{get_name_from_update(name, update)}: {update.size / 1024**2:.2f} MiB in {len(update.packages)} packages"
         )
         for pkg in update.packages:
             print(f"  - {pkg.name} ({pkg.size / 1024**2:.2f} MiB)")
@@ -182,14 +181,14 @@ def get_repos(
             print(f"Using cached index for {repo}:{v}")
 
         with open(fn, "rb") as f:
-            timeline = tuple(process_index(f))
+            timeline = process_index(f)
 
         repos.append(
             Repository(
                 name=f"{repo}:{v}",
                 version=v,
                 url=f"{sources}/{repo}-{v}/",
-                timeline=timeline,
+                latest=timeline[-1],
             )
         )
 
