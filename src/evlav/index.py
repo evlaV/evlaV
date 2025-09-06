@@ -15,7 +15,7 @@ class Update(NamedTuple):
     date: datetime
     size: int
     packages: tuple[Package, ...]
-    prev: tuple["Update", ...] = ()
+    prev: "Update | None" = None
 
 
 class IndexParser(HTMLParser):
@@ -119,17 +119,6 @@ class IndexParser(HTMLParser):
                     pass
 
 
-def viz_timeline(timeline: list[Update]):
-    for update in timeline:
-        print(
-            f"{update.date.strftime("%Y%m%d-%H%MZ")}: {update.size / 1024**2:.2f} MiB in {len(update.packages)} packages"
-        )
-        for pkg in update.packages:
-            print(f"  - {pkg.name} ({pkg.size / 1024**2:.2f} MiB)")
-        print()
-    print(f"Total updates: {len(timeline)}")
-
-
 def process_index(data: BufferedReader):
     # Get the packages
     parser = IndexParser()
@@ -142,18 +131,42 @@ def process_index(data: BufferedReader):
     # Create a timeline, keep only date and skip hour
     dates = sorted(set(pkg.date for pkg in packages))
     timeline: list[Update] = []
+    prev_update = None
     for date in dates:
         pkgs = tuple(pkg for pkg in packages if pkg.date == date)
         size = sum(pkg.size for pkg in pkgs)
-        timeline.append(
-            Update(date=date, size=size, packages=pkgs, prev=tuple(timeline))
-        )
+        prev_update = Update(date=date, size=size, packages=pkgs, prev=prev_update)
+        timeline.append(prev_update)
 
-    viz_timeline(timeline)
+    return timeline
+
+
+def viz_timeline(timeline: list[Update], name: str = ""):
+    prefix = f"{name}-" if name else ""
+
+    for update in timeline:
+        print(
+            f"{prefix}{update.date.strftime("%y%m%d-%H%MZ")}: {update.size / 1024**2:.2f} MiB in {len(update.packages)} packages"
+        )
+        for pkg in update.packages:
+            print(f"  - {pkg.name} ({pkg.size / 1024**2:.2f} MiB)")
+        print()
+    print(f"Total updates ({name}): {len(timeline)}")
 
 
 if __name__ == "__main__":
     import sys
 
-    with open(sys.argv[1], "rb") as f:
-        process_index(f)
+    timelines = {}
+    for arg in sys.argv[1:]:
+        name, fn = arg.split(":", 1)
+        with open(fn, "rb") as f:
+            timelines[name] = set(process_index(f))
+
+    primary_name = next(iter(timelines))
+    primary = timelines.pop(primary_name)
+    viz_timeline(sorted(primary, key=lambda u: u.date), name=primary_name)
+
+    for name, timeline in timelines.items():
+        print(f"Timeline for {name}:")
+        viz_timeline(sorted(timeline - primary, key=lambda u: u.date), name=name)
