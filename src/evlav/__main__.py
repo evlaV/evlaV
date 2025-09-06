@@ -25,7 +25,7 @@ def main():
         "--version",
         type=str,
         nargs="+",
-        default=["main", "3.3.3", "3.5", "3.6", "3.7"],
+        default=["main", "3.5", "3.6", "3.7"],
         help="Versions to sync (default: all supported). WARNING: The first version MUST ALWAYS be the trunk version (i.e., main).",
     )
     parser.add_argument(

@@ -137,8 +137,70 @@ def get_upd_todo(
     return todo
 
 
+def download_missing(missing: dict[str, str]):
+    if not missing:
+        return
+
+    print(f"Downloading {len(missing)} missing files...")
+
+    import threading
+    import queue
+    import time
+
+    broke = threading.Event()
+
+    def worker(q: queue.Queue):
+        while True:
+            fn, url = q.get()
+            if fn is None or q.is_shutdown:
+                break
+            os.makedirs(os.path.dirname(fn), exist_ok=True)
+            name = fn.rsplit("/", 1)[-1]
+            r = os.system(f"curl -sSL {url} -o {fn}.tmp && mv {fn}.tmp {fn}")
+            if r != 0:
+                print(f"Failed to download {name}")
+                broke.set()
+                q.shutdown()
+                break
+            
+            print(f"Downloaded '{name}'")
+            q.task_done()
+
+    q = queue.Queue()
+    num_threads = min(8, len(missing))
+    threads = []
+    for _ in range(num_threads):
+        t = threading.Thread(target=worker, args=(q,))
+        t.start()
+        threads.append(t)
+
+    try:
+        for fn, url in missing.items():
+            q.put((fn, url))
+            if q.is_shutdown:
+                break
+
+        while not broke.is_set() and not q.empty() and not q.is_shutdown:
+            time.sleep(0.2)
+    except Exception:
+        pass
+
+    if broke.is_set():
+        raise RuntimeError("Failed to download some files")
+
+
 def process_repo(
     repo: Repository, trunk_version: str | None, cache: str, tags: list[str]
 ):
-    for upd in get_upd_todo(tags, repo.latest, repo.version, trunk_version):
-        print(get_name_from_update(repo.version, upd))
+    todo = get_upd_todo(tags, repo.latest, repo.version, trunk_version)
+
+    print(f"Processing {repo.name} ({len(todo)} updates to apply)")
+
+    missing = {}
+    for upd in todo:
+        for pkg in upd.packages:
+            fn = os.path.join(cache, pkg.name)
+            if not os.path.exists(fn) and fn not in missing:
+                missing[fn] = repo.url + "/" + pkg.link
+
+    download_missing(missing)
