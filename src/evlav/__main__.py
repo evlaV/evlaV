@@ -62,7 +62,7 @@ def main():
 
         remote = os.path.abspath(remote)
 
-    prepare_repo(args.repo, args.work, remote)
+    repo_path = prepare_repo(args.repo, args.work, remote)
     tags = get_tags(f"{args.work}/{args.repo}")
 
     trunk, *repos = get_repos(
@@ -73,9 +73,25 @@ def main():
         skip_existing=args.skip_existing,
     )
 
-    process_repo(trunk, trunk=None, cache=args.cache, tags=tags)
+    process_repo(
+        trunk,
+        trunk=None,
+        cache=args.cache,
+        tags=tags,
+        repo_path=repo_path,
+        work_dir=args.work,
+        remote=remote,
+    )
     for repo in repos:
-        process_repo(repo, trunk=trunk, cache=args.cache, tags=tags)
+        process_repo(
+            repo,
+            trunk=trunk,
+            cache=args.cache,
+            tags=tags,
+            repo_path=repo_path,
+            work_dir=args.work,
+            remote=remote,
+        )
 
 
 if __name__ == "__main__":

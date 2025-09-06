@@ -1,5 +1,8 @@
 import logging
 import os
+import re
+import subprocess
+import tarfile
 from typing import NamedTuple
 
 from .index import Repository, Update, get_name_from_update
@@ -15,6 +18,7 @@ class Sources(NamedTuple):
     pkg: str
     files: list[str]
     repos: list[tuple[str, str]]
+    pkgbuild: str
 
 
 def extract_sources(fn: str) -> Sources | None:
@@ -22,8 +26,6 @@ def extract_sources(fn: str) -> Sources | None:
     # The PKGBUILD is a bash script that contains a sources variable
     # The sources variable consists of files (protocol file://) and
     # repos. For repos, we only care to preserve steamos ones
-    import re
-    import tarfile
 
     with tarfile.open(fn, "r:gz") as tar:
         # Try to infer package name from fn, otherwise find first dir
@@ -63,29 +65,41 @@ def extract_sources(fn: str) -> Sources | None:
             logger.warning(f"No sources found in PKGBUILD {fn}")
             return None
 
-        sources = [m.strip().strip('"').strip("'") for m in matches[0].split("\n")]
+        sources = []
+        for m in matches[0].split("\n"):
+            initial = m.strip().rsplit(" #", 1)[0].strip()
+
+            if initial.startswith('"') and initial.endswith('"'):
+                initial = initial[1:-1]
+            elif initial.startswith("'") and initial.endswith("'"):
+                initial = initial[1:-1]
+            elif initial.startswith("#"):
+                continue
+            elif " " in initial:
+                sources.extend(initial.split(" "))
+                continue
+
+            sources.append(initial)
 
         files = []
         repos = []
         for src in sources:
             # Check for git
-            if src.startswith("#"):
-                continue
-            elif src.startswith("git+"):
+            if src.startswith("git+"):
                 repo = src.split("#", 1)[0]
                 repo_name = repo.split("/")[-1].replace(".git", "")
                 if INTERNAL_CHECK in repo:
                     repos.append((repo_name, repo))
-            else:
-                # Skip remote fetches
-                if (
-                    "::" not in src
-                    and not src.startswith("http://")
-                    and not src.startswith("https://")
-                ):
-                    files.append(src)
+            elif (
+                src
+                and "::" not in src
+                and not src.startswith("http://")
+                and not src.startswith("https://")
+            ):
+                # Skip remotes, skip :: which is remotes
+                files.append(src)
 
-        return Sources(pkgname, files=files, repos=repos)
+        return Sources(pkgname, files=files, repos=repos, pkgbuild=pkgbuild)
 
 
 def prepare_repo(repo: str, work: str, remote: str):
@@ -95,13 +109,13 @@ def prepare_repo(repo: str, work: str, remote: str):
         shutil.rmtree(work)
     os.makedirs(work, exist_ok=True)
 
-    if not os.path.exists(os.path.join(work, repo)):
-        r = os.system(f"git clone --bare {remote}/{repo} {work}/{repo}")
-    else:
-        r = os.system(f"git -C {work}/{repo} pull")
+    repo_path = f"{work}/{repo}"
+    r = os.system(f"git clone {remote}/{repo} {repo_path}")
 
     if r != 0:
         raise RuntimeError(f"Failed to prepare repository {repo} in {work}")
+
+    return repo_path
 
 
 def get_tags(repo_path: str) -> list[str]:
@@ -158,8 +172,8 @@ def download_missing(missing: dict[str, str]):
 
     print(f"Downloading {len(missing)} missing files...")
 
-    import threading
     import queue
+    import threading
     import time
 
     broke = threading.Event()
@@ -204,7 +218,119 @@ def download_missing(missing: dict[str, str]):
         raise RuntimeError("Failed to download some files")
 
 
-def process_repo(repo: Repository, trunk: Repository | None, cache: str, tags: list[str]):
+def srun(cmd: list[str]):
+    import subprocess
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Command failed with code {result.returncode}")
+        print(f"stdout: {result.stdout}")
+        print(f"stderr: {result.stderr}")
+        raise RuntimeError(f"Command {' '.join(cmd)} failed")
+    return result.stdout.strip()
+
+
+def generate_upd_text(repo: Repository, upd: Update) -> str:
+    lines = [
+        f"{get_name_from_update(repo.version, upd)}: update {', '.join([p.name.rsplit("-", 2)[0] for p in upd.packages])} ({upd.size / 1024**2:.2f} MiB)"
+    ]
+    for pkg in upd.packages:
+        lines.append(f"- {pkg.name} ({pkg.size / 1024**2:.2f} MiB)")
+    return "\n".join(lines)
+
+
+def process_update(
+    repo: Repository,
+    upd: Update,
+    begin_tag: str | None,
+    cache: str,
+    repo_path: str,
+    work_dir: str,
+    remote: str,
+    i: int,
+    total: int,
+):
+    import subprocess
+
+    tag_name = get_name_from_update(repo.version, upd)
+    if begin_tag is None:
+        begin_tag = "initial"
+    srun(["git", "-C", repo_path, "checkout", begin_tag])
+
+    for pkg in upd.packages:
+        pkg_fn = os.path.join(cache, pkg.name)
+        src = extract_sources(pkg_fn)
+        if not src:
+            print(f"Failed to extract sources from {pkg.name}, skipping")
+            continue
+
+        # Remove existing folder
+        pkg_path = os.path.join(repo_path, src.pkg)
+        srun(["rm", "-rf", pkg_path])
+        os.makedirs(pkg_path, exist_ok=True)
+
+        # Write PKGBUILD
+        with open(os.path.join(pkg_path, "PKGBUILD"), "w") as f:
+            f.write(src.pkgbuild)
+
+        # Write other files if necessary
+        if not src.files and not src.repos:
+            continue
+
+        with tarfile.open(pkg_fn, "r:gz") as tar:
+            for fn in src.files:
+                member = tar.getmember(f"{src.pkg}/{fn}")
+                member.name = fn  # Prevent path traversal
+                tar.extract(member, pkg_path)
+
+            for repo_name, _ in src.repos:
+                repo_dir = os.path.join(work_dir, repo_name)
+                if os.path.exists(repo_dir):
+                    srun(["rm", "-rf", repo_dir])
+
+                # Extract repo from tar
+                def filter_repo(tarinfo):
+                    if tarinfo.name.startswith(f"{src.pkg}/{repo_name}/"):
+                        tarinfo.name = tarinfo.name.split("/", 1)[1]
+                        return tarinfo
+                    return None
+
+                tar.extractall(path=work_dir, members=filter(filter_repo, tar))
+
+                # Add remote and push everything
+                srun(
+                    [
+                        "git",
+                        "-C",
+                        repo_dir,
+                        "remote",
+                        "add",
+                        "mirror",
+                        remote + "/" + repo_name,
+                    ]
+                )
+                srun(["git", "-C", repo_dir, "push", "--mirror", "mirror"])
+
+    upd_text = generate_upd_text(repo, upd)
+    print(f"Update ({i:04d}/{total}): {upd_text}\n")
+    srun(["git", "-C", repo_path, "add", "."])
+    srun(["git", "-C", repo_path, "commit", "-m", upd_text])
+    srun(["git", "-C", repo_path, "tag", tag_name])
+
+    if (i + 1) % 1 == 0 or i + 1 == total:
+        # print(f"Pushing to remote {remote}...")
+        srun(["git", "-C", repo_path, "push", "origin", "--tags"])
+
+
+def process_repo(
+    repo: Repository,
+    trunk: Repository | None,
+    cache: str,
+    tags: list[str],
+    repo_path: str,
+    work_dir: str,
+    remote: str,
+):
     todo = get_upd_todo(tags, repo.latest, repo.version, trunk)
 
     print(f"Processing {repo.name} ({len(todo)} updates to apply)")
@@ -215,5 +341,10 @@ def process_repo(repo: Repository, trunk: Repository | None, cache: str, tags: l
             fn = os.path.join(cache, pkg.name)
             if not os.path.exists(fn) and fn not in missing:
                 missing[fn] = repo.url + "/" + pkg.link
+
+    for i, (upd, begin_tag) in enumerate(todo):
+        process_update(
+            repo, upd, begin_tag, cache, repo_path, work_dir, remote, i, len(todo)
+        )
 
     download_missing(missing)
