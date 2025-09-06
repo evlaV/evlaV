@@ -219,7 +219,9 @@ def srun(cmd: list[str]):
 
 def generate_upd_text(repo: Repository, upd: Update) -> str:
     lines = [
-        f"{get_name_from_update(repo.version, upd)}: update {', '.join([p.name.rsplit("-", 2)[0] for p in upd.packages])} ({upd.size / 1024**2:.2f} MiB)"
+        f"{get_name_from_update(repo.version, upd)}: update {', '.join([p.name.rsplit("-", 2)[0] for p in upd.packages])}",
+        "",
+        f"Update Changes ({upd.size / 1024**2:.2f} MiB):",
     ]
     for pkg in upd.packages:
         lines.append(f"- {pkg.name} ({pkg.size / 1024**2:.2f} MiB)")
@@ -277,6 +279,7 @@ def process_update(
 
                 # Extract repo from tar
                 pkg_name = src.pkg
+
                 def filter_repo(tarinfo):
                     if tarinfo.name.startswith(f"{pkg_name}/{repo_name}/"):
                         tarinfo.name = tarinfo.name.split("/", 1)[1]
@@ -309,7 +312,14 @@ def process_update(
         # print(f"Pushing to remote {remote}...")
         srun(["git", "-C", repo_path, "push", "origin", "--tags"])
         srun(
-            ["git", "-C", repo_path, "push", "origin", f"{tag_name}:refs/heads/{repo.version}"]
+            [
+                "git",
+                "-C",
+                repo_path,
+                "push",
+                "origin",
+                f"{tag_name}:refs/heads/{repo.version}",
+            ]
         )
 
 
