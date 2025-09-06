@@ -219,14 +219,25 @@ def download_missing(missing: dict[str, str]):
         raise RuntimeError("Failed to download some files")
 
 
-def generate_upd_text(repo: Repository, upd: Update) -> str:
-    if len(upd.packages) <= 4:
-        pkgs = ", ".join([p.name.rsplit("-", 2)[0] for p in upd.packages])
+def generate_upd_text(repo: Repository, upd: Update, added: list[str]) -> str:
+    pkg_names = [p.name.rsplit("-", 2)[0] for p in upd.packages]
+
+    if added:
+        pkg_names = [p for p in pkg_names if p not in added]
+        if len(added) <= 4:
+            pkgs = "add " + ", ".join(added) + (", " if pkg_names else "")
+        else:
+            pkgs = f"add {len(added)} packages" + (", " if pkg_names else "")
     else:
-        pkgs = f"{len(upd.packages)} packages"
+        pkgs = ""
+
+    if len(pkg_names) <= 4:
+        pkgs += f"update " + ", ".join(pkg_names)
+    else:
+        pkgs += f"update {len(pkg_names)} packages"
 
     lines = [
-        f"{get_name_from_update(repo.version, upd)}: update {pkgs}",
+        f"{get_name_from_update(repo.version, upd)}: {pkgs}",
         "",
         f"Update Changes ({upd.size / 1024**2:.2f} MiB):",
     ]
@@ -252,6 +263,7 @@ def process_update(
     if begin_tag is None:
         begin_tag = "initial"
     srun(["git", "-C", repo_path, "checkout", begin_tag])
+    added = []
 
     for pkg in upd.packages:
         pkg_fn = os.path.join(cache, pkg.name)
@@ -262,7 +274,10 @@ def process_update(
 
         # Remove existing folder
         pkg_path = os.path.join(repo_path, src.pkg)
-        srun(["rm", "-rf", pkg_path])
+        if os.path.exists(pkg_path):
+            srun(["rm", "-rf", pkg_path])
+        else:
+            added.append(src.pkg)
         os.makedirs(pkg_path, exist_ok=True)
 
         # Write PKGBUILD
@@ -309,7 +324,7 @@ def process_update(
                 )
                 srun(["git", "-C", repo_dir, "push", "--mirror", "mirror"])
 
-    upd_text = generate_upd_text(repo, upd)
+    upd_text = generate_upd_text(repo, upd, added)
     print(f"Update ({i:04d}/{total}): {upd_text}\n")
     srun(["git", "-C", repo_path, "add", "."])
     srun(["git", "-C", repo_path, "commit", "-m", upd_text, "--date", upd.date.isoformat()])
