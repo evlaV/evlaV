@@ -73,9 +73,9 @@ def main():
         skip_existing=args.skip_existing,
     )
 
-    process_repo(trunk, None, args.cache, tags)
+    process_repo(trunk, trunk=None, cache=args.cache, tags=tags)
     for repo in repos:
-        process_repo(repo, trunk_version=trunk.version, cache=args.cache, tags=tags)
+        process_repo(repo, trunk=trunk, cache=args.cache, tags=tags)
 
 
 if __name__ == "__main__":

@@ -5,7 +5,7 @@ from typing import NamedTuple
 from .index import Repository, Update, get_name_from_update
 
 INTERNAL_CHECK = "git@gitlab.internal.steamos.cloud"
-PARALLEL_PULLS = 4
+PARALLEL_PULLS = 8
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -96,7 +96,7 @@ def prepare_repo(repo: str, work: str, remote: str):
     os.makedirs(work, exist_ok=True)
 
     if not os.path.exists(os.path.join(work, repo)):
-        r = os.system(f"git clone {remote}/{repo} {work}/{repo}")
+        r = os.system(f"git clone --bare {remote}/{repo} {work}/{repo}")
     else:
         r = os.system(f"git -C {work}/{repo} pull")
 
@@ -118,8 +118,8 @@ def get_tags(repo_path: str) -> list[str]:
 
 
 def get_upd_todo(
-    tags: list[str], latest: Update, branch_version: str, trunk_version: str | None
-) -> list[Update]:
+    tags: list[str], latest: Update, branch_version: str, trunk: Repository | None
+) -> list[tuple[Update, str | None]]:
     todo = []
     curr = latest
 
@@ -127,11 +127,25 @@ def get_upd_todo(
         name = get_name_from_update(branch_version, curr)
         if name in tags:
             break
-        if trunk_version:
-            name = get_name_from_update(trunk_version, curr)
-            if name in tags:
-                break
-        todo.append(curr)
+
+        prev_branch = branch_version
+        should_break = False
+
+        # Create fork tag
+        if trunk and curr.prev:
+            cprev = curr.prev
+            chk = trunk.latest
+            while chk:
+                if chk == cprev:
+                    prev_branch = trunk.version
+                    should_break = True
+                    break
+                chk = chk.prev
+
+        begin_tag = get_name_from_update(prev_branch, curr.prev) if curr.prev else None
+        todo.append((curr, begin_tag))
+        if should_break:
+            break
         curr = curr.prev
 
     todo.reverse()
@@ -163,7 +177,7 @@ def download_missing(missing: dict[str, str]):
                 broke.set()
                 q.shutdown()
                 break
-            
+
             print(f"Downloaded '{name}'")
             q.task_done()
 
@@ -190,15 +204,13 @@ def download_missing(missing: dict[str, str]):
         raise RuntimeError("Failed to download some files")
 
 
-def process_repo(
-    repo: Repository, trunk_version: str | None, cache: str, tags: list[str]
-):
-    todo = get_upd_todo(tags, repo.latest, repo.version, trunk_version)
+def process_repo(repo: Repository, trunk: Repository | None, cache: str, tags: list[str]):
+    todo = get_upd_todo(tags, repo.latest, repo.version, trunk)
 
     print(f"Processing {repo.name} ({len(todo)} updates to apply)")
 
     missing = {}
-    for upd in todo:
+    for upd, _ in todo:
         for pkg in upd.packages:
             fn = os.path.join(cache, pkg.name)
             if not os.path.exists(fn) and fn not in missing:
