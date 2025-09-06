@@ -312,7 +312,7 @@ def process_update(
     upd_text = generate_upd_text(repo, upd)
     print(f"Update ({i:04d}/{total}): {upd_text}\n")
     srun(["git", "-C", repo_path, "add", "."])
-    srun(["git", "-C", repo_path, "commit", "-m", upd_text])
+    srun(["git", "-C", repo_path, "commit", "-m", upd_text, "--date", upd.date.isoformat()])
     srun(["git", "-C", repo_path, "tag", tag_name])
 
     if (i + 1) % 1 == 0 or i + 1 == total:
