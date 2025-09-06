@@ -220,8 +220,13 @@ def download_missing(missing: dict[str, str]):
 
 
 def generate_upd_text(repo: Repository, upd: Update) -> str:
+    if len(upd.packages) <= 4:
+        pkgs = ", ".join([p.name.rsplit("-", 2)[0] for p in upd.packages])
+    else:
+        pkgs = f"{len(upd.packages)} packages"
+
     lines = [
-        f"{get_name_from_update(repo.version, upd)}: update {', '.join([p.name.rsplit("-", 2)[0] for p in upd.packages])}",
+        f"{get_name_from_update(repo.version, upd)}: update {pkgs}",
         "",
         f"Update Changes ({upd.size / 1024**2:.2f} MiB):",
     ]
