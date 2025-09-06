@@ -11,6 +11,13 @@ class Package(NamedTuple):
     size: int
 
 
+class Update(NamedTuple):
+    date: datetime
+    size: int
+    packages: tuple[Package, ...]
+    prev: tuple["Update", ...] = ()
+
+
 class IndexParser(HTMLParser):
 
     def __init__(self, name_filter: str | None = ".tar.gz"):
@@ -112,6 +119,17 @@ class IndexParser(HTMLParser):
                     pass
 
 
+def viz_timeline(timeline: list[Update]):
+    for update in timeline:
+        print(
+            f"{update.date.date()}: {update.size / 1024**2:.2f} MiB in {len(update.packages)} packages"
+        )
+        for pkg in update.packages:
+            print(f"  - {pkg.name} ({pkg.size / 1024**2:.2f} MiB)")
+        print()
+    print(f"Total updates: {len(timeline)}")
+
+
 def process_index(data: BufferedReader):
     # Get the packages
     parser = IndexParser()
@@ -120,8 +138,24 @@ def process_index(data: BufferedReader):
 
     if not packages:
         raise ValueError("No packages found in index")
-    
-    print(f"Found {len(packages)} packages in index")
+
+    # Create a timeline, keep only date and skip hour
+    dates = sorted(
+        set(datetime.combine(pkg.date.date(), datetime.min.time()) for pkg in packages)
+    )
+    prev_date = None
+    timeline: list[Update] = []
+    for date in dates:
+        pkgs = tuple(
+            pkg
+            for pkg in packages
+            if pkg.date < date and (not prev_date or pkg.date >= prev_date)
+        )
+        size = sum(pkg.size for pkg in pkgs)
+        timeline.append(Update(date=date, size=size, packages=pkgs, prev=tuple(timeline)))
+        prev_date = date
+
+    viz_timeline(timeline)
 
 
 if __name__ == "__main__":
