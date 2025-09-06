@@ -5,6 +5,7 @@ from typing import NamedTuple
 from .index import Repository, Update, get_name_from_update
 
 INTERNAL_CHECK = "git@gitlab.internal.steamos.cloud"
+PARALLEL_PULLS = 4
 
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
@@ -167,7 +168,7 @@ def download_missing(missing: dict[str, str]):
             q.task_done()
 
     q = queue.Queue()
-    num_threads = min(8, len(missing))
+    num_threads = min(PARALLEL_PULLS, len(missing))
     threads = []
     for _ in range(num_threads):
         t = threading.Thread(target=worker, args=(q,))
