@@ -1,7 +1,7 @@
 # Prepare the remote directory to run locally
 REMOTE=${1:-remote}
 
-prepare_repo() {
+prepare_repo_tag() {
     if [ -d "$REMOTE/$1" ]; then
         echo "Repository $1 already exists."
     else
@@ -11,5 +11,27 @@ prepare_repo() {
     fi
 }
 
-prepare_repo "jupiter"
-prepare_repo "holo"
+prepare_repo() {
+    if [ -d "$REMOTE/$1" ]; then
+        echo "Repository $1 already exists."
+    else
+        git init --bare "$REMOTE/$1"
+    fi
+}
+
+# Find all with `python -m evlav.sources <cache>`
+prepare_repo_tag "jupiter"
+prepare_repo_tag "holo"
+
+prepare_repo jupiter-fan-control
+prepare_repo jupiter-hw-support
+prepare_repo jupiter-validation-tools
+
+prepare_repo linux-firmware-neptune
+prepare_repo linux-neptune
+prepare_repo linux-neptune-rtw-debug
+
+prepare_repo foxnetstatsd
+prepare_repo steamos-customizations
+prepare_repo vpower
+prepare_repo xserver-jupiter
