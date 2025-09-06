@@ -53,6 +53,18 @@ def main():
         action="store_true",
         help="Skip refreshing indexes for testing.",
     )
+    parser.add_argument(
+        "--user-name",
+        type=str,
+        default="Evlav Bot",
+        help="The username to push as when committing to the git repository.",
+    )
+    parser.add_argument(
+        "--user-email",
+        type=str,
+        default="evlav@bazzite.gg",
+        help="The email to use when committing to the git repository.",
+    )
     args = parser.parse_args()
 
     remote = args.remote
@@ -62,7 +74,7 @@ def main():
 
         remote = os.path.abspath(remote)
 
-    repo_path = prepare_repo(args.repo, args.work, remote)
+    repo_path = prepare_repo(args.repo, args.work, remote, args.user_name, args.user_email)
     tags = get_tags(f"{args.work}/{args.repo}")
 
     trunk, *repos = get_repos(

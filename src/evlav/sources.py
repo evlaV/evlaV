@@ -22,6 +22,18 @@ class Sources(NamedTuple):
     pkgbuild: str
 
 
+def srun(cmd: list[str]):
+    import subprocess
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"Command failed with code {result.returncode}")
+        print(f"stdout: {result.stdout}")
+        print(f"stderr: {result.stderr}")
+        raise RuntimeError(f"Command {' '.join(cmd)} failed")
+    return result.stdout.strip()
+
+
 def extract_sources(fn: str) -> Sources | None:
     # File is a .tar.gz archive containing a 'PKGBUILD' file
     # The PKGBUILD is a bash script that contains a sources variable
@@ -89,7 +101,7 @@ def extract_sources(fn: str) -> Sources | None:
         return Sources(pkgname, files=files, repos=repos, pkgbuild=pkgbuild)
 
 
-def prepare_repo(repo: str, work: str, remote: str):
+def prepare_repo(repo: str, work: str, remote: str, name: str, email: str):
     import shutil
 
     if os.path.exists(work):
@@ -97,10 +109,10 @@ def prepare_repo(repo: str, work: str, remote: str):
     os.makedirs(work, exist_ok=True)
 
     repo_path = f"{work}/{repo}"
-    r = os.system(f"git clone {remote}/{repo} {repo_path}")
-
-    if r != 0:
-        raise RuntimeError(f"Failed to prepare repository {repo} in {work}")
+    srun(["git", "clone", f"{remote}/{repo}", repo_path])
+    srun(["git", "-C", repo_path, "config", "user.name", name])
+    srun(["git", "-C", repo_path, "config", "user.email", email])
+    srun(["git", "-C", repo_path, "config", "commit.gpgsign", "false"])
 
     return repo_path
 
@@ -172,9 +184,11 @@ def download_missing(missing: dict[str, str]):
                 break
             os.makedirs(os.path.dirname(fn), exist_ok=True)
             name = fn.rsplit("/", 1)[-1]
-            r = os.system(f"curl -sSL {url} -o {fn}.tmp && mv {fn}.tmp {fn}")
-            if r != 0:
-                print(f"Failed to download {name}")
+            try:
+                srun(["curl", "-sSL", url, "-o", f"{fn}.tmp"])
+                os.rename(f"{fn}.tmp", fn)
+            except Exception as e:
+                print(f"Failed to download {name}: {e}")
                 broke.set()
                 q.shutdown()
                 break
@@ -203,18 +217,6 @@ def download_missing(missing: dict[str, str]):
 
     if broke.is_set():
         raise RuntimeError("Failed to download some files")
-
-
-def srun(cmd: list[str]):
-    import subprocess
-
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    if result.returncode != 0:
-        print(f"Command failed with code {result.returncode}")
-        print(f"stdout: {result.stdout}")
-        print(f"stderr: {result.stderr}")
-        raise RuntimeError(f"Command {' '.join(cmd)} failed")
-    return result.stdout.strip()
 
 
 def generate_upd_text(repo: Repository, upd: Update) -> str:
