@@ -122,7 +122,7 @@ class IndexParser(HTMLParser):
 def viz_timeline(timeline: list[Update]):
     for update in timeline:
         print(
-            f"{update.date.date()}: {update.size / 1024**2:.2f} MiB in {len(update.packages)} packages"
+            f"{update.date.strftime("%Y%m%d-%H%MZ")}: {update.size / 1024**2:.2f} MiB in {len(update.packages)} packages"
         )
         for pkg in update.packages:
             print(f"  - {pkg.name} ({pkg.size / 1024**2:.2f} MiB)")
@@ -140,20 +140,14 @@ def process_index(data: BufferedReader):
         raise ValueError("No packages found in index")
 
     # Create a timeline, keep only date and skip hour
-    dates = sorted(
-        set(datetime.combine(pkg.date.date(), datetime.min.time()) for pkg in packages)
-    )
-    prev_date = None
+    dates = sorted(set(pkg.date for pkg in packages))
     timeline: list[Update] = []
     for date in dates:
-        pkgs = tuple(
-            pkg
-            for pkg in packages
-            if pkg.date < date and (not prev_date or pkg.date >= prev_date)
-        )
+        pkgs = tuple(pkg for pkg in packages if pkg.date == date)
         size = sum(pkg.size for pkg in pkgs)
-        timeline.append(Update(date=date, size=size, packages=pkgs, prev=tuple(timeline)))
-        prev_date = date
+        timeline.append(
+            Update(date=date, size=size, packages=pkgs, prev=tuple(timeline))
+        )
 
     viz_timeline(timeline)
 
