@@ -4,6 +4,7 @@ import re
 import subprocess
 import tarfile
 from typing import NamedTuple
+import shlex
 
 from .index import Repository, Update, get_name_from_update
 
@@ -65,21 +66,7 @@ def extract_sources(fn: str) -> Sources | None:
             logger.warning(f"No sources found in PKGBUILD {fn}")
             return None
 
-        sources = []
-        for m in matches[0].split("\n"):
-            initial = m.strip().rsplit(" #", 1)[0].strip()
-
-            if initial.startswith('"') and initial.endswith('"'):
-                initial = initial[1:-1]
-            elif initial.startswith("'") and initial.endswith("'"):
-                initial = initial[1:-1]
-            elif initial.startswith("#"):
-                continue
-            elif " " in initial:
-                sources.extend(initial.split(" "))
-                continue
-
-            sources.append(initial)
+        sources = shlex.split(matches[0], comments=True)
 
         files = []
         repos = []
@@ -321,6 +308,9 @@ def process_update(
     if (i + 1) % 1 == 0 or i + 1 == total:
         # print(f"Pushing to remote {remote}...")
         srun(["git", "-C", repo_path, "push", "origin", "--tags"])
+        srun(
+            ["git", "-C", repo_path, "push", "origin", f"{tag_name}:refs/heads/{repo.version}"]
+        )
 
 
 def process_repo(
