@@ -93,8 +93,8 @@ def extract_sources(fn: str) -> Sources | None:
             elif (
                 src
                 and "::" not in src
-                and not src.startswith("http://")
-                and not src.startswith("https://")
+                and "http://" not in src
+                and "https://" not in src
             ):
                 # Skip remotes, skip :: which is remotes
                 files.append(src)
@@ -289,8 +289,9 @@ def process_update(
                     srun(["rm", "-rf", repo_dir])
 
                 # Extract repo from tar
+                pkg_name = src.pkg
                 def filter_repo(tarinfo):
-                    if tarinfo.name.startswith(f"{src.pkg}/{repo_name}/"):
+                    if tarinfo.name.startswith(f"{pkg_name}/{repo_name}/"):
                         tarinfo.name = tarinfo.name.split("/", 1)[1]
                         return tarinfo
                     return None
