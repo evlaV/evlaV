@@ -1,7 +1,8 @@
+import os
 from datetime import datetime
 from html.parser import HTMLParser
 from io import BufferedReader
-from typing import NamedTuple, Literal
+from typing import Literal, NamedTuple
 
 
 class Package(NamedTuple):
@@ -16,6 +17,16 @@ class Update(NamedTuple):
     size: int
     packages: tuple[Package, ...]
     prev: "Update | None" = None
+
+
+class Repository(NamedTuple):
+    name: str
+    version: str
+    url: str
+    timeline: tuple[Update, ...]
+
+    def __repr__(self) -> str:
+        return f"Repository({self.name}, {self.version}, {self.url}, {len(self.timeline)} updates)"
 
 
 class IndexParser(HTMLParser):
@@ -152,6 +163,37 @@ def viz_timeline(timeline: list[Update], name: str = ""):
             print(f"  - {pkg.name} ({pkg.size / 1024**2:.2f} MiB)")
         print()
     print(f"Total updates ({name}): {len(timeline)}")
+
+
+def get_repos(
+    repo: str, versions: list[str], sources: str, cache: str, skip_existing: bool
+) -> list[Repository]:
+    repos = []
+
+    for v in versions:
+        fn = os.path.join(cache, f"{repo}-{v}.html")
+
+        if not skip_existing or not os.path.exists(fn):
+            url = f"{sources}/{repo}-{v}/"
+            print(f"Downloading index for {repo}:{v} from {url}")
+            os.makedirs(cache, exist_ok=True)
+            os.system(f"curl -sSL {url} -o {fn}")
+        else:
+            print(f"Using cached index for {repo}:{v}")
+
+        with open(fn, "rb") as f:
+            timeline = tuple(process_index(f))
+
+        repos.append(
+            Repository(
+                name=f"{repo}:{v}",
+                version=v,
+                url=f"{sources}/{repo}-{v}/",
+                timeline=timeline,
+            )
+        )
+
+    return repos
 
 
 if __name__ == "__main__":
