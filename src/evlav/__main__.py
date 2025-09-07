@@ -91,10 +91,11 @@ def _main():
 
         remote = os.path.abspath(remote)
 
-    repo_path = prepare_repo(
-        args.repo, args.work, remote, args.user_name, args.user_email
-    )
-    tags = get_tags(f"{args.work}/{args.repo}", args.version)
+    # Allow pulling jupiter and holo in parallel
+    work = os.path.join(args.work, args.repo)
+
+    repo_path = prepare_repo(args.repo, work, remote, args.user_name, args.user_email)
+    tags = get_tags(f"{work}/{args.repo}", args.version)
 
     trunk, *repos = get_repos(
         repo=args.repo,
@@ -110,7 +111,7 @@ def _main():
         cache=args.cache,
         tags=tags,
         repo_path=repo_path,
-        work_dir=args.work,
+        work_dir=work,
         remote=remote,
         skip_other_repos=args.skip_other_repos,
         should_resume=args.should_resume,
@@ -123,7 +124,7 @@ def _main():
             cache=args.cache,
             tags=tags,
             repo_path=repo_path,
-            work_dir=args.work,
+            work_dir=work,
             remote=remote,
             skip_other_repos=args.skip_other_repos,
             should_resume=args.should_resume,
