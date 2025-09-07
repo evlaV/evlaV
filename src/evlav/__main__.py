@@ -49,6 +49,13 @@ def _main():
         help="Path to the final pull remote. Used to fixup the PKGBUILD files. Format: 'git+https://github.com/<org>'",
     )
     parser.add_argument(
+        "--readme",
+        type=str,
+        required=False,
+        default=None,
+        help="Path to a README file to use for the repository if starting from scratch.",
+    )
+    parser.add_argument(
         "-w",
         "--work",
         type=str,
@@ -116,6 +123,7 @@ def _main():
         skip_other_repos=args.skip_other_repos,
         should_resume=args.should_resume,
         pull_remote=args.pull_remote,
+        readme=args.readme,
     )
     for repo in repos:
         process_repo(
@@ -129,6 +137,7 @@ def _main():
             skip_other_repos=args.skip_other_repos,
             should_resume=args.should_resume,
             pull_remote=args.pull_remote,
+            readme=args.readme,
         )
 
 

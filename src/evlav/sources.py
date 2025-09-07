@@ -352,6 +352,7 @@ def process_update(
     tags: dict[str, str],
     should_resume: bool = False,
     pull_remote: str | None = None,
+    readme: str | None = None,
 ):
     tag_name = get_name_from_update(repo, upd)
     if begin_tag is None:
@@ -359,6 +360,15 @@ def process_update(
             not should_resume
         ), "Cannot start from the beginning. Did the repo change?"
         srun(["git", "-C", repo_path, "checkout", "--orphan", repo.version])
+        if readme:
+            with open(readme, "r") as f:
+                readme_text = f.read()
+                readme_text = readme_text.replace(
+                    "<replace-repo>", repo.branch.capitalize()
+                )
+            with open(os.path.join(repo_path, "readme.md"), "w") as f:
+                f.write(readme_text)
+            srun(["git", "-C", repo_path, "add", "readme.md"])
     else:
         begin_hash = tags[begin_tag]
         srun(["git", "-C", repo_path, "checkout", begin_hash])
@@ -476,6 +486,7 @@ def process_repo(
     skip_other_repos: bool = False,
     should_resume: bool = False,
     pull_remote: str | None = None,
+    readme: str | None = None,
 ):
     todo = get_upd_todo(tags, repo.latest, repo, trunk)
 
@@ -505,6 +516,7 @@ def process_repo(
             tags,
             should_resume,
             pull_remote,
+            readme,
         )
 
 
