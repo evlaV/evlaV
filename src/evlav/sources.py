@@ -28,7 +28,12 @@ class Sources(NamedTuple):
     pkgbuild: str
 
 
-def srun(cmd: list[str], env: dict[str, str] | None = None, error: bool = True, silent: bool = False) -> str:
+def srun(
+    cmd: list[str],
+    env: dict[str, str] | None = None,
+    error: bool = True,
+    silent: bool = False,
+) -> str:
     import subprocess
 
     result = subprocess.run(cmd, capture_output=True, text=True, env=env)
@@ -39,6 +44,9 @@ def srun(cmd: list[str], env: dict[str, str] | None = None, error: bool = True, 
             print(f"stderr: {result.stderr}")
         if error:
             raise RuntimeError(f"Command {' '.join(cmd)} failed")
+        else:
+            # Return these to grep for important errors
+            return result.stdout.strip() + result.stderr.strip()
     return result.stdout.strip()
 
 
@@ -442,10 +450,11 @@ def process_update(
                     ]
                 )
 
-                # When we push --all, some outdated refs may error out
-                # So we have to eat the error
-                srun(["git", "-C", repo_dir, "push", "--all", "mirror"], error=False, silent=True)
-                srun(["git", "-C", repo_dir, "push", "--tags", "mirror"], error=False)
+                # Use --force here to update outdated refs
+                for t in ["--all", "--tags"]:
+                    srun(
+                        ["git", "-C", repo_dir, "push", t, "mirror", "--force"],
+                    )
 
                 # Save memory
                 shutil.rmtree(repo_dir)
