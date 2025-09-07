@@ -443,7 +443,7 @@ def process_update(
 
                 # When we push --all, some outdated refs may error out
                 # So we have to eat the error
-                srun(["git", "-C", repo_dir, "push", "--all", "mirror"], error=False)
+                srun(["git", "-C", repo_dir, "push", "--all", "--tags", "mirror"], error=False)
 
                 # Save memory
                 shutil.rmtree(repo_dir)
