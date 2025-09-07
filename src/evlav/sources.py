@@ -243,7 +243,7 @@ def download_missing(missing: dict[str, str]):
 
     if broke.is_set():
         raise RuntimeError("Failed to download some files")
-    
+
     broke.set()
     q.shutdown(True)
     for t in threads:
@@ -287,6 +287,7 @@ def process_update(
     remote: str,
     i: int,
     total: int,
+    skip_other_repos: bool,
 ):
     tag_name = get_name_from_update(repo, upd)
     if begin_tag is None:
@@ -324,7 +325,7 @@ def process_update(
                 member.name = fn  # Prevent path traversal
                 tar.extract(member, pkg_path)
 
-            for repo_name, unpack_name, _ in src.repos:
+            for repo_name, unpack_name, _ in src.repos if not skip_other_repos else []:
                 repo_dir = os.path.join(work_dir, unpack_name)
                 if os.path.exists(repo_dir):
                     srun(["rm", "-rf", repo_dir])
@@ -394,6 +395,7 @@ def process_repo(
     repo_path: str,
     work_dir: str,
     remote: str,
+    skip_other_repos: bool = False,
 ):
     todo = get_upd_todo(tags, repo.latest, repo, trunk)
 
@@ -410,7 +412,16 @@ def process_repo(
 
     for i, (upd, begin_tag) in enumerate(todo):
         process_update(
-            repo, upd, begin_tag, cache, repo_path, work_dir, remote, i, len(todo)
+            repo,
+            upd,
+            begin_tag,
+            cache,
+            repo_path,
+            work_dir,
+            remote,
+            i,
+            len(todo),
+            skip_other_repos,
         )
 
 

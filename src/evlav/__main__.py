@@ -54,6 +54,11 @@ def main():
         help="Skip refreshing indexes for testing.",
     )
     parser.add_argument(
+        "--skip-other-repos",
+        action="store_true",
+        help="Skip extracting internal repos for testing.",
+    )
+    parser.add_argument(
         "--user-name",
         type=str,
         default="Evlav Bot",
@@ -93,6 +98,7 @@ def main():
         repo_path=repo_path,
         work_dir=args.work,
         remote=remote,
+        skip_other_repos=args.skip_other_repos,
     )
     for repo in repos:
         process_repo(
@@ -103,6 +109,7 @@ def main():
             repo_path=repo_path,
             work_dir=args.work,
             remote=remote,
+            skip_other_repos=args.skip_other_repos,
         )
 
 
