@@ -5,7 +5,7 @@ import shutil
 import tarfile
 from typing import NamedTuple
 
-from .index import Repository, Update, get_name_from_update
+from .index import Repository, Update
 
 INTERNAL_CHECK = "steamos.cloud"
 PARALLEL_PULLS = 8
@@ -122,6 +122,8 @@ def extract_sources(fn, tar) -> Sources | None:
             match pkgname:
                 case x if "linux-neptune" in x:
                     unpack_name = "archlinux-linux-neptune"
+                    if "-kasan" in pkgname:
+                        unpack_name += "archlinux-" + pkgname.replace("-kasan", "")
                     repo_name = "linux-integration"
                 case "steamos-customizations-jupiter":
                     repo_name = "steamos-customizations"
@@ -175,13 +177,28 @@ def prepare_repo(repo: str, work: str, remote: str, name: str, email: str):
     return repo_path
 
 
+def get_name_from_update(repo: Repository, update: Update) -> str:
+    date_str = update.date.strftime("%y%m%d-%H%MZ")
+    return f"{repo.version}-{date_str}"
+
+
 def get_tags(repo_path: str, versions: list[str]) -> dict[str, str]:
     print("Extracting versions from git...")
     tags = []
     for v in versions:
         try:
             out = (
-                srun(["git", "-C", repo_path, "log", "origin/" + v, '--format="%H:%s"'])
+                srun(
+                    [
+                        "git",
+                        "-C",
+                        repo_path,
+                        "log",
+                        "origin/" + v,
+                        "--format=%H:%ad:%s",
+                        "--date=format:%y%m%d-%H%MZ",
+                    ]
+                )
                 .strip()
                 .split("\n")
             )
@@ -191,8 +208,8 @@ def get_tags(repo_path: str, versions: list[str]) -> dict[str, str]:
 
     mapping = {}
     for t in tags:
-        ghash, tag, *_ = t.split(":", 2)
-        mapping[tag.strip('"')] = ghash.strip('"')
+        ghash, date, version, *_ = t.split(":", 3)
+        mapping[version + "-" + date] = ghash.strip('"')
 
     return mapping
 
@@ -312,7 +329,7 @@ def generate_upd_text(repo: Repository, upd: Update, added: list[str]) -> str:
         pkgs += f"update {len(pkg_names)} packages"
 
     lines = [
-        f"{get_name_from_update(repo, upd)}: {pkgs}",
+        f"{repo.version}: {pkgs}",
         "",
         f"Update Changes ({upd.size / 1024**2:.2f} MiB):",
     ]

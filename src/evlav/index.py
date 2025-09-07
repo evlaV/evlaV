@@ -150,31 +150,6 @@ def process_index(data: BufferedReader):
     return timeline
 
 
-def get_name_from_update(repo: Repository, update: Update) -> str:
-    curr = repo.latest
-    cdate = update.date.date()
-    multiple_same_day = False
-    while curr:
-        if curr != update and curr.date.date() == cdate:
-            multiple_same_day = True
-            break
-        curr = curr.prev
-    
-    date_str = update.date.strftime("%y%m%d-%H%MZ" if multiple_same_day else "%y%m%d")
-    return f"{repo.version}-{date_str}"
-
-
-def viz_timeline(timeline: list[Update], repo: Repository):
-    for update in timeline:
-        print(
-            f"{get_name_from_update(repo, update)}: {update.size / 1024**2:.2f} MiB in {len(update.packages)} packages"
-        )
-        for pkg in update.packages:
-            print(f"  - {pkg.name} ({pkg.size / 1024**2:.2f} MiB)")
-        print()
-    print(f"Total updates ({repo.version}): {len(timeline)}")
-
-
 def get_repos(
     repo: str, versions: list[str], sources: str, cache: str, skip_existing: bool
 ) -> list[Repository]:
