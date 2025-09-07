@@ -18,11 +18,11 @@ The design goals for this tool were:
 ## Usage
 Clone this repository. Then, it is recommended to run `./cache.sh`. This will use `rclone` to pull down the `holo-main` and `jupiter-main` source packages. `rclone` supports multiple HTTP connections per file, so it is very fast. The total download is around 500GB/600GB at the time of writing this and will take 2-4 hours. The other ~100GB will be pulled from the tool.
 
-This tool uses a single cache directory instead of one per repo. This was done because `jupiter-3.6` is essentially a copy of `jupiter-main` at the point of split. So most packages are the same, including date and hash. This allows us to use `main` as a trunk and calculate the split point for `3.6`, `3.7`, etc. However, backports do not have the same hash. We make the good-faith assumption that the `PKGBUILD` is the same between backports and the trunk so we only keep one. This means that `rclone` cannot be used to sync all repos.
+This tool uses a single cache directory instead of one per repo. This was done because `jupiter-3.6` is essentially a copy of `jupiter-main` at the point of split. So most packages are the same, including date and hash. This allows us to use `main` as a trunk and calculate the split point for `3.6`, `3.7`, etc. However, backports do not have the same hash. We make the good-faith assumption that the `PKGBUILD` is the same between backports and the trunk so we only keep one. This means that `rclone` cannot be used to sync all repos as name collisions will cause it to redownload too many files.
 
 In case of invalid data in the cache, `./rminv.sh` will find invalid archives and remove them.
 
-Then, you can run the tool:
+After a bulk sync, you can run the tool:
 ```python
 python3 -m venv venv
 source venv/bin/activate
@@ -43,3 +43,5 @@ pip install -e .
 evlav jupiter
 evlav holo
 ```
+
+The tool will automatically resume from the last point it was ran. Use `evlav --help` to find out more options.
