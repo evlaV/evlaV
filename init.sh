@@ -1,16 +1,6 @@
 # Prepare the remote directory to run locally
 REMOTE=${1:-remote}
 
-prepare_repo_tag() {
-    if [ -d "$REMOTE/$1" ]; then
-        echo "Repository $1 already exists."
-    else
-        git init "$REMOTE/$1"
-        git -C "$REMOTE/$1" commit --allow-empty -m "Initial commit"
-        git -C "$REMOTE/$1" tag initial
-    fi
-}
-
 prepare_repo() {
     if [ -d "$REMOTE/$1" ]; then
         echo "Repository $1 already exists."
@@ -20,8 +10,8 @@ prepare_repo() {
 }
 
 # Find all with `python -m evlav.sources <cache>`
-prepare_repo_tag "jupiter"
-prepare_repo_tag "holo"
+prepare_repo "jupiter"
+prepare_repo "holo"
 
 # Jupiter sub-repos
 prepare_repo mesa
@@ -47,6 +37,8 @@ prepare_repo steamdeck-kde-presets
 prepare_repo ds-inhibit
 prepare_repo powerbuttond
 prepare_repo valve-hardware-audio-processing
+prepare_repo xdg-desktop-portal-gamescope
+prepare_repo xdg-desktop-portal-holo
 prepare_repo holo-keyring
 prepare_repo holo-rust-packaging-tools
 
@@ -63,3 +55,4 @@ prepare_repo debos
 prepare_repo kdump-steamos
 prepare_repo kupdate-notifier
 prepare_repo scx
+prepare_repo dirlock

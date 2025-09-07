@@ -111,7 +111,7 @@ def extract_sources(fn, tar) -> Sources | None:
         )
 
         # Check for git
-        if "git+" in src:
+        if "git+" in src or 'git://' in src:
             if "::" in src:
                 repo_name = src.split("::", 1)[0]
             else:
@@ -147,6 +147,8 @@ def extract_sources(fn, tar) -> Sources | None:
             and "http://" not in src
             and "https://" not in src
             and "$url" not in src
+            and "${url}" not in src
+            and "$_source_base" not in src
         ):
             # Skip remotes, skip :: which is remotes
             files.append(src)
@@ -243,7 +245,10 @@ def download_missing(missing: dict[str, str]):
 
     def worker(q: queue.Queue):
         while not q.is_shutdown and not broke.is_set():
-            fn, url = q.get()
+            try:
+                fn, url = q.get()
+            except Exception:
+                pass
             if fn is None or q.is_shutdown:
                 break
             os.makedirs(os.path.dirname(fn), exist_ok=True)
@@ -335,10 +340,10 @@ def process_update(
         assert (
             not should_resume
         ), "Cannot start from the beginning. Did the repo change?"
-        begin_hash = "initial"
+        srun(["git", "-C", repo_path, "checkout", "--orphan", repo.version])
     else:
         begin_hash = tags[begin_tag]
-    srun(["git", "-C", repo_path, "checkout", begin_hash])
+        srun(["git", "-C", repo_path, "checkout", begin_hash])
     added = []
 
     for pkg in upd.packages:

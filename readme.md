@@ -33,9 +33,6 @@ pip install -e .
 # For local use, ./init.sh will initialize ./remote with empty repositories
 # for the tool to use. For a github/gitlab org, these repositories will
 # need to be created manually.
-
-# For holo, jupiter repos, the tool will begin from tag `initial`, so you
-# can e.g., add readmes to that tag if you want.
 ./init.sh
 
 # Optional: use ramdisk scratch dir to avoid scratching your drive
