@@ -9,7 +9,7 @@ from .index import Repository, Update, get_name_from_update
 
 INTERNAL_CHECK = "internal.steamos.cloud"
 PARALLEL_PULLS = 8
-
+MAX_SUBJ_PACKAGES = 6
 
 class Sources(NamedTuple):
     pkg: str
@@ -260,14 +260,14 @@ def generate_upd_text(repo: Repository, upd: Update, added: list[str]) -> str:
 
     if added:
         pkg_names = [p for p in pkg_names if p not in added]
-        if len(added) <= 4:
+        if len(added) <= MAX_SUBJ_PACKAGES:
             pkgs = "add " + ", ".join(added) + (", " if pkg_names else "")
         else:
             pkgs = f"add {len(added)} packages" + (", " if pkg_names else "")
     else:
         pkgs = ""
 
-    if len(pkg_names) <= 4:
+    if len(pkg_names) <= MAX_SUBJ_PACKAGES:
         pkgs += f"update " + ", ".join(pkg_names)
     else:
         pkgs += f"update {len(pkg_names)} packages"
