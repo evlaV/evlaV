@@ -353,6 +353,7 @@ def process_update(
     should_resume: bool = False,
     pull_remote: str | None = None,
     readme: str | None = None,
+    update_interval: int = 1,
 ):
     tag_name = get_name_from_update(repo, upd)
     if begin_tag is None:
@@ -461,8 +462,7 @@ def process_update(
     ghash = srun(["git", "-C", repo_path, "rev-parse", "HEAD"])
     tags[tag_name] = ghash
 
-    if (i + 1) % 1 == 0 or i + 1 == total:
-        # print(f"Pushing to remote {remote}...")
+    if (i + 1) % update_interval == 0 or i + 1 == total:
         srun(
             [
                 "git",
@@ -487,6 +487,7 @@ def process_repo(
     should_resume: bool = False,
     pull_remote: str | None = None,
     readme: str | None = None,
+    update_interval: int = 1,
 ):
     todo = get_upd_todo(tags, repo.latest, repo, trunk)
 
@@ -517,6 +518,7 @@ def process_repo(
             should_resume,
             pull_remote,
             readme,
+            update_interval,
         )
 
 

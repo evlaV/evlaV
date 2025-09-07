@@ -78,6 +78,12 @@ def _main():
         help="Block starting over from the beginning. Prevent damaging repository history in case the index changed.",
     )
     parser.add_argument(
+        "--update-interval",
+        type=int,
+        default=1,
+        help="The number of commits between pushing to remote. 1 is fine for a local remote. 10 is good for a remote like GitHub.",
+    )
+    parser.add_argument(
         "--user-name",
         type=str,
         default="Evlav Bot",
@@ -124,6 +130,7 @@ def _main():
         should_resume=args.should_resume,
         pull_remote=args.pull_remote,
         readme=args.readme,
+        update_interval=args.update_interval,
     )
     for repo in repos:
         process_repo(
@@ -138,6 +145,7 @@ def _main():
             should_resume=args.should_resume,
             pull_remote=args.pull_remote,
             readme=args.readme,
+            update_interval=args.update_interval,
         )
 
 
