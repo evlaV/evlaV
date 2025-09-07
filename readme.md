@@ -2,18 +2,18 @@
 This is a little tool that can convert an Arch srcpkg repository to a set of git repositories. It is primarily designed to work on SteamOS repositories and designed to replace [srcpkg2git](https://gitlab.com/evlaV/srcpkg2git). 
 
 The design goals for this tool were:
-    - Should be able to run locally
-      - Without internet if nothing changed
-    - Should be able to run from a github action
-      - Only downloading what was changed since last run
-      - I.e., take a few minutes to run
-      - If no update was done, should only ping a few index files so it can run multiple times a day
-    - Should be able to reconstruct the entire history from scratch
-      - This would allow re-constructing the repos if something changes
-    - Should minimize hard drive access
-      - Only the PKGBUILD is extracted from each srcpkg
-      - Afterwards, local sources are extracted individually to place in the git repo
-      - If `--skip-other-repos` is not used, internal repositories (only) are piece meal extracted and pushed to a remote.
+  - Should be able to run locally
+    - Without internet if nothing changed
+  - Should be able to run from a github action
+    - Only downloading what was changed since last run
+    - I.e., take a few minutes to run
+    - If no update was done, should only ping a few index files so it can run multiple times a day
+  - Should be able to reconstruct the entire history from scratch
+    - This would allow re-constructing the repos if something changes
+  - Should minimize hard drive access
+    - Only the PKGBUILD is extracted from each srcpkg
+    - Afterwards, local sources are extracted individually to place in the git repo
+    - If `--skip-other-repos` is not used, internal repositories (only) are piece meal extracted and pushed to a remote.
 
 ## Usage
 Clone this repository. Then, it is recommended to run `./cache.sh`. This will use `rclone` to pull down the `holo-main` and `jupiter-main` source packages. `rclone` supports multiple HTTP connections per file, so it is very fast. The total download is around 500GB/600GB at the time of writing this and will take 2-4 hours. The other ~100GB will be pulled from the tool.
