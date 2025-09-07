@@ -10,14 +10,12 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  sync-holo:
+  sync-mirrors:
     name: Sync Jupiter/Holo Mirrors
     runs-on: ubuntu-latest
     continue-on-error: false
     permissions:
       contents: read
-      packages: write
-      id-token: write
 
     steps:
       - name: Checkout repository
@@ -26,6 +24,12 @@ jobs:
       - name: Install evlaV
         run: |
           pip install -e .
+      
+      - name: Login to Github
+        run: |
+          echo "${{ secrets.PUSH_TOKEN }}" | gh auth login --with-token
+        with:
+          GITHUB_TOKEN: ${{ secrets.PUSH_TOKEN }}
       
       - name: Sync Holo ISO Mirror
         run: |
