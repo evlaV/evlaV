@@ -11,7 +11,7 @@ The design goals for this tool were:
   - Should be able to reconstruct the entire history from scratch
     - This would allow re-constructing the repos if something changes
   - Should minimize hard drive access
-    - Only the PKGBUILD is extracted from each srcpkg
+    - Only the `PKGBUILD` is extracted from each srcpkg
     - Afterwards, local sources are extracted individually to place in the git repo
     - If `--skip-other-repos` is not used, internal repositories (only) are piece meal extracted and pushed to a remote.
 
@@ -34,12 +34,12 @@ pip install -e .
 # for the tool to use. For a github/gitlab org, these repositories will
 # need to be created manually.
 
-# For holo, jupiter repos, the tool will begin from tag initial, so you
+# For holo, jupiter repos, the tool will begin from tag `initial`, so you
 # can e.g., add readmes to that tag if you want.
 ./init.sh
 
 # Run once per repo
-# By default, the directoreis ./work (scratch dir), ./cache (tar.gz dir), ./remote (assumes) are used
+# By default, the directories ./work (scratch dir), ./cache (tar.gz dir), ./remote (placeholder for a Github Org) are used
 evlav jupiter
 evlav holo
 ```
