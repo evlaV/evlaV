@@ -4,7 +4,7 @@ from .index import get_repos
 from .sources import prepare_repo, get_tags, process_repo
 
 
-def main():
+def _main():
     parser = argparse.ArgumentParser(
         description="SteamOS sources repository sync script."
     )
@@ -112,6 +112,11 @@ def main():
             skip_other_repos=args.skip_other_repos,
         )
 
+def main():
+    try:
+        _main()
+    except KeyboardInterrupt:
+        print("Interrupted, exiting...")
 
 if __name__ == "__main__":
     main()
