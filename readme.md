@@ -45,3 +45,5 @@ evlav holo
 ```
 
 The tool will automatically resume from the last point it was ran. Use `evlav --help` to find out more options.
+
+To reconstruct the whole history, the tool requires around 1-3 hours. If ran with `--skip-other-repos` to just regenerate `holo` and `jupiter`, it takes less than 1 hour.
