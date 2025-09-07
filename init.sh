@@ -9,6 +9,12 @@ prepare_repo() {
     fi
 }
 
+# # Mass create automatically
+# prepare_repo() {
+#     ORGANIZATION=evlav
+#     git ls-remote https://github.com/$ORGANIZATION/$1 --json url || gh repo create $ORGANIZATION/$1 --public
+# }
+
 # Find all with `python -m evlav.sources <cache>`
 prepare_repo "jupiter"
 prepare_repo "holo"
