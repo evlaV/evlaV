@@ -157,17 +157,17 @@ def get_tags(repo_path: str) -> list[str]:
 
 
 def get_upd_todo(
-    tags: list[str], latest: Update, branch_version: str, trunk: Repository | None
+    tags: list[str], latest: Update, branch: Repository, trunk: Repository | None
 ) -> list[tuple[Update, str | None]]:
     todo = []
     curr = latest
 
     while curr:
-        name = get_name_from_update(branch_version, curr)
+        name = get_name_from_update(branch, curr)
         if name in tags:
             break
 
-        prev_branch = branch_version
+        prev_branch = branch
         should_break = False
 
         # Create fork tag
@@ -176,7 +176,7 @@ def get_upd_todo(
             chk = trunk.latest
             while chk:
                 if chk == cprev:
-                    prev_branch = trunk.version
+                    prev_branch = trunk
                     should_break = True
                     break
                 chk = chk.prev
@@ -266,7 +266,7 @@ def generate_upd_text(repo: Repository, upd: Update, added: list[str]) -> str:
         pkgs += f"update {len(pkg_names)} packages"
 
     lines = [
-        f"{get_name_from_update(repo.version, upd)}: {pkgs}",
+        f"{get_name_from_update(repo, upd)}: {pkgs}",
         "",
         f"Update Changes ({upd.size / 1024**2:.2f} MiB):",
     ]
@@ -286,7 +286,7 @@ def process_update(
     i: int,
     total: int,
 ):
-    tag_name = get_name_from_update(repo.version, upd)
+    tag_name = get_name_from_update(repo, upd)
     if begin_tag is None:
         begin_tag = "initial"
     srun(["git", "-C", repo_path, "checkout", begin_tag])
@@ -393,7 +393,7 @@ def process_repo(
     work_dir: str,
     remote: str,
 ):
-    todo = get_upd_todo(tags, repo.latest, repo.version, trunk)
+    todo = get_upd_todo(tags, repo.latest, repo, trunk)
 
     print(f"Processing {repo.name} ({len(todo)} updates to apply)")
 

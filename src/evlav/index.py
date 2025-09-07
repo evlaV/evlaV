@@ -148,20 +148,20 @@ def process_index(data: BufferedReader):
     return timeline
 
 
-def get_name_from_update(name: str, update: Update) -> str:
+def get_name_from_update(repo: Repository, update: Update) -> str:
     date_str = update.date.strftime("%y%m%d-%H%MZ")
-    return f"{name}-{date_str}" if name else date_str
+    return f"{repo.name}-{repo.version}-{date_str}"
 
 
-def viz_timeline(timeline: list[Update], name: str = ""):
+def viz_timeline(timeline: list[Update], repo: Repository):
     for update in timeline:
         print(
-            f"{get_name_from_update(name, update)}: {update.size / 1024**2:.2f} MiB in {len(update.packages)} packages"
+            f"{get_name_from_update(repo, update)}: {update.size / 1024**2:.2f} MiB in {len(update.packages)} packages"
         )
         for pkg in update.packages:
             print(f"  - {pkg.name} ({pkg.size / 1024**2:.2f} MiB)")
         print()
-    print(f"Total updates ({name}): {len(timeline)}")
+    print(f"Total updates ({repo.version}): {len(timeline)}")
 
 
 def get_repos(
@@ -193,21 +193,3 @@ def get_repos(
         )
 
     return repos
-
-
-if __name__ == "__main__":
-    import sys
-
-    timelines = {}
-    for arg in sys.argv[1:]:
-        name, fn = arg.split(":", 1)
-        with open(fn, "rb") as f:
-            timelines[name] = set(process_index(f))
-
-    primary_name = next(iter(timelines))
-    primary = timelines.pop(primary_name)
-    viz_timeline(sorted(primary, key=lambda u: u.date), name=primary_name)
-
-    for name, timeline in timelines.items():
-        print(f"Timeline for {name}:")
-        viz_timeline(sorted(timeline - primary, key=lambda u: u.date), name=name)
