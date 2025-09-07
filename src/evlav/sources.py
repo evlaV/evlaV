@@ -28,15 +28,16 @@ class Sources(NamedTuple):
     pkgbuild: str
 
 
-def srun(cmd: list[str], env: dict[str, str] | None = None):
+def srun(cmd: list[str], env: dict[str, str] | None = None, error: bool = True) -> str:
     import subprocess
 
     result = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if result.returncode != 0:
-        print(f"Command failed with code {result.returncode}")
-        print(f"stdout: {result.stdout}")
-        print(f"stderr: {result.stderr}")
-        raise RuntimeError(f"Command {' '.join(cmd)} failed")
+        if error:
+            print(f"Command failed with code {result.returncode}")
+            print(f"stdout: {result.stdout}")
+            print(f"stderr: {result.stderr}")
+            raise RuntimeError(f"Command {' '.join(cmd)} failed")
     return result.stdout.strip()
 
 
@@ -438,7 +439,10 @@ def process_update(
                         remote + "/" + repo_name,
                     ]
                 )
-                srun(["git", "-C", repo_dir, "push", "--all", "mirror"])
+
+                # When we push --all, some outdated refs may error out
+                # So we have to eat the error
+                srun(["git", "-C", repo_dir, "push", "--all", "mirror"], error=False)
 
                 # Save memory
                 shutil.rmtree(repo_dir)
