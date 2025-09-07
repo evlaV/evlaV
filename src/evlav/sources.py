@@ -20,6 +20,7 @@ INTERNAL_REPLACE = [
     "git+https://gitlab.steamos.cloud/steam",
 ]
 
+
 class Sources(NamedTuple):
     pkg: str
     files: list[str]
@@ -27,10 +28,10 @@ class Sources(NamedTuple):
     pkgbuild: str
 
 
-def srun(cmd: list[str]):
+def srun(cmd: list[str], env: dict[str, str] | None = None):
     import subprocess
 
-    result = subprocess.run(cmd, capture_output=True, text=True)
+    result = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if result.returncode != 0:
         print(f"Command failed with code {result.returncode}")
         print(f"stdout: {result.stdout}")
@@ -111,7 +112,7 @@ def extract_sources(fn, tar) -> Sources | None:
         )
 
         # Check for git
-        if "git+" in src or 'git://' in src:
+        if "git+" in src or "git://" in src:
             if "::" in src:
                 repo_name = src.split("::", 1)[0]
             else:
@@ -410,7 +411,7 @@ def process_update(
                     ]
                 )
                 srun(["git", "-C", repo_dir, "push", "--mirror", "mirror"])
-                
+
                 # Save memory
                 shutil.rmtree(repo_dir)
 
@@ -427,7 +428,8 @@ def process_update(
             upd_text,
             "--date",
             upd.date.isoformat(),
-        ]
+        ],
+        env={"GIT_COMMITTER_DATE": upd.date.isoformat()},
     )
     ghash = srun(["git", "-C", repo_path, "rev-parse", "HEAD"])
     tags[tag_name] = ghash
