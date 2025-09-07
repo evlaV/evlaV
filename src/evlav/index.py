@@ -21,6 +21,7 @@ class Update(NamedTuple):
 
 class Repository(NamedTuple):
     name: str
+    branch: str
     version: str
     url: str
     latest: Update
@@ -150,7 +151,7 @@ def process_index(data: BufferedReader):
 
 def get_name_from_update(repo: Repository, update: Update) -> str:
     date_str = update.date.strftime("%y%m%d-%H%MZ")
-    return f"{repo.name}-{repo.version}-{date_str}"
+    return f"{repo.branch}-{repo.version}-{date_str}"
 
 
 def viz_timeline(timeline: list[Update], repo: Repository):
@@ -186,6 +187,7 @@ def get_repos(
         repos.append(
             Repository(
                 name=f"{repo}:{v}",
+                branch=repo,
                 version=v,
                 url=f"{sources}/{repo}-{v}/",
                 latest=timeline[-1],
