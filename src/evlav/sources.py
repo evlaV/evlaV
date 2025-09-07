@@ -77,7 +77,7 @@ def extract_sources(fn, tar) -> Sources | None:
         r"^ *?source *?= *?\((.*?)\)", pkgbuild, re.DOTALL | re.MULTILINE
     )
     if not matches:
-        logger.warning(f"No sources found in PKGBUILD {fn}")
+        print(f"No sources found in PKGBUILD {fn}")
         return Sources(pkgname, files=[], repos=[], pkgbuild=pkgbuild)
 
     sources = shlex.split(matches[0], comments=True)
