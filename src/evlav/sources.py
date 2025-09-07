@@ -204,7 +204,7 @@ def download_missing(missing: dict[str, str]):
     broke = threading.Event()
 
     def worker(q: queue.Queue):
-        while not q.is_shutdown:
+        while not q.is_shutdown and not broke.is_set():
             fn, url = q.get()
             if fn is None or q.is_shutdown:
                 break
@@ -216,7 +216,7 @@ def download_missing(missing: dict[str, str]):
             except Exception as e:
                 print(f"Failed to download {name}: {e}")
                 broke.set()
-                q.shutdown()
+                q.shutdown(True)
                 break
 
             print(f"Downloaded '{name}'")
