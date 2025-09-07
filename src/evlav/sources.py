@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 import shlex
@@ -12,6 +11,14 @@ INTERNAL_CHECK = "steamos.cloud"
 PARALLEL_PULLS = 8
 MAX_SUBJ_PACKAGES = 6
 
+INTERNAL_REPLACE = [
+    "git+ssh://git@gitlab.internal.steamos.cloud/jupiter",
+    "git+ssh://git@gitlab.internal.steamos.cloud:/steam",
+    "git+ssh://git@gitlab.steamos.cloud/jupiter",
+    "git+https://gitlab.steamos.cloud/devkit",
+    "git+https://gitlab.steamos.cloud/jupiter",
+    "git+https://gitlab.steamos.cloud/steam",
+]
 
 class Sources(NamedTuple):
     pkg: str
@@ -125,6 +132,8 @@ def extract_sources(fn, tar) -> Sources | None:
                     repo_name = "holo-keyring"
                 case x if "holo-rust-packaging-tools" in x:
                     repo_name = "holo-rust-packaging-tools"
+                case "xorg-xwayland-jupiter":
+                    repo_name = "xserver"
                 case _:
                     assert (
                         "$_srcname" not in repo_name
@@ -319,6 +328,7 @@ def process_update(
     skip_other_repos: bool,
     tags: dict[str, str],
     should_resume: bool = False,
+    pull_remote: str | None = None,
 ):
     tag_name = get_name_from_update(repo, upd)
     if begin_tag is None:
@@ -350,7 +360,11 @@ def process_update(
 
             # Write PKGBUILD
             with open(os.path.join(pkg_path, "PKGBUILD"), "w") as f:
-                f.write(src.pkgbuild)
+                pkgbuild = src.pkgbuild
+                if pull_remote:
+                    for pattern in INTERNAL_REPLACE:
+                        pkgbuild = pkgbuild.replace(pattern, pull_remote)
+                f.write(pkgbuild)
 
             # Write other files if necessary
             if not src.files and not src.repos:
@@ -437,6 +451,7 @@ def process_repo(
     remote: str,
     skip_other_repos: bool = False,
     should_resume: bool = False,
+    pull_remote: str | None = None,
 ):
     todo = get_upd_todo(tags, repo.latest, repo, trunk)
 
@@ -465,6 +480,7 @@ def process_repo(
             skip_other_repos,
             tags,
             should_resume,
+            pull_remote,
         )
 
 

@@ -57,7 +57,7 @@ prepare_repo usbhid-gadget-passthru
 prepare_repo vpower
 prepare_repo wakehook
 prepare_repo wireplumber
-prepare_repo xserver-jupiter
+prepare_repo xserver
 prepare_repo calamares-settings-steamos
 prepare_repo debos
 prepare_repo kdump-steamos

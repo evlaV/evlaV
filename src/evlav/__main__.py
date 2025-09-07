@@ -42,6 +42,13 @@ def _main():
         help="Path to the output remote. This will be where all the versioned repositories are stored. Can be a local path or a github org.",
     )
     parser.add_argument(
+        "--pull-remote",
+        type=str,
+        required=False,
+        default=None,
+        help="Path to the final pull remote. Used to fixup the PKGBUILD files. Format: 'git+https://github.com/<org>'",
+    )
+    parser.add_argument(
         "-w",
         "--work",
         type=str,
@@ -107,6 +114,7 @@ def _main():
         remote=remote,
         skip_other_repos=args.skip_other_repos,
         should_resume=args.should_resume,
+        pull_remote=args.pull_remote,
     )
     for repo in repos:
         process_repo(
@@ -119,6 +127,7 @@ def _main():
             remote=remote,
             skip_other_repos=args.skip_other_repos,
             should_resume=args.should_resume,
+            pull_remote=args.pull_remote,
         )
 
 
