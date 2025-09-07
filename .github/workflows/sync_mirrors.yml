@@ -37,11 +37,13 @@ jobs:
             --pull-remote="git+https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1
+            --should-resume
 
-      # - name: Sync Jupiter Mirror
-      #   run: |
-      #     evlav jupiter \
-      #       --readme=./readme-replace.md \
-      #       --pull-remote="git+https://github.com/evlav" \
-      #       --remote=https://github.com/evlav \
-      #       --update-interval=1
+      - name: Sync Jupiter Mirror
+        run: |
+          evlav jupiter \
+            --readme=./readme-replace.md \
+            --pull-remote="git+https://github.com/evlav" \
+            --remote=https://github.com/evlav \
+            --update-interval=1
+            --should-resume
