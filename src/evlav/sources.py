@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 class Sources(NamedTuple):
     pkg: str
     files: list[str]
-    repos: list[tuple[str, str]]
+    repos: list[tuple[str, str, str]]
     pkgbuild: str
 
 
@@ -89,22 +89,37 @@ def extract_sources(fn: str) -> Sources | None:
         files = []
         repos = []
         for src in sources:
+            src = src.replace("${pkgname%-git}", pkgname.replace("-git", "")).replace(
+                "$pkgname", pkgname
+            )
+
             # Check for git
             if "git+" in src:
-                if "::" in src and "${pkgname%-git}::" not in src:
+                if "::" in src:
                     repo_name = src.split("::", 1)[0]
                 else:
                     repo_name = src.split("#", 1)[0].split("/")[-1].replace(".git", "")
+                unpack_name = repo_name
 
-                repo_name = repo_name.replace("$_srcname", pkgname)
+                match pkgname:
+                    case x if "linux-neptune" in x:
+                        unpack_name = "archlinux-linux-neptune"
+                        repo_name = "linux-neptune"
+                    case "steamos-customizations-jupiter":
+                        repo_name = "steamos-customizations"
+                    case _:
+                        assert (
+                            "$_srcname" not in repo_name
+                        ), f"Unknown package with $_srcname: {pkgname}"
 
                 if INTERNAL_CHECK in src:
-                    repos.append((repo_name, src))
+                    repos.append((repo_name, unpack_name, src))
             elif (
                 src
                 and "::" not in src
                 and "http://" not in src
                 and "https://" not in src
+                and "$url" not in src
             ):
                 # Skip remotes, skip :: which is remotes
                 files.append(src)
@@ -189,7 +204,7 @@ def download_missing(missing: dict[str, str]):
     broke = threading.Event()
 
     def worker(q: queue.Queue):
-        while True:
+        while not q.is_shutdown:
             fn, url = q.get()
             if fn is None or q.is_shutdown:
                 break
@@ -225,6 +240,9 @@ def download_missing(missing: dict[str, str]):
             time.sleep(0.2)
     except Exception:
         pass
+
+    for t in threads:
+        t.join()
 
     if broke.is_set():
         raise RuntimeError("Failed to download some files")
@@ -268,8 +286,6 @@ def process_update(
     i: int,
     total: int,
 ):
-    import subprocess
-
     tag_name = get_name_from_update(repo.version, upd)
     if begin_tag is None:
         begin_tag = "initial"
@@ -299,14 +315,15 @@ def process_update(
         if not src.files and not src.repos:
             continue
 
+        print(f"Extracting sources for {pkg.name}")
         with tarfile.open(pkg_fn, "r:gz") as tar:
             for fn in src.files:
                 member = tar.getmember(f"{src.pkg}/{fn}")
                 member.name = fn  # Prevent path traversal
                 tar.extract(member, pkg_path)
 
-            for repo_name, _ in src.repos:
-                repo_dir = os.path.join(work_dir, repo_name)
+            for repo_name, unpack_name, _ in src.repos:
+                repo_dir = os.path.join(work_dir, unpack_name)
                 if os.path.exists(repo_dir):
                     srun(["rm", "-rf", repo_dir])
 
@@ -314,7 +331,7 @@ def process_update(
                 pkg_name = src.pkg
 
                 def filter_repo(tarinfo):
-                    if tarinfo.name.startswith(f"{pkg_name}/{repo_name}/"):
+                    if tarinfo.name.startswith(f"{pkg_name}/{unpack_name}/"):
                         tarinfo.name = tarinfo.name.split("/", 1)[1]
                         return tarinfo
                     return None
@@ -387,12 +404,12 @@ def process_repo(
             if not os.path.exists(fn) and fn not in missing:
                 missing[fn] = repo.url + "/" + pkg.link
 
+    download_missing(missing)
+
     for i, (upd, begin_tag) in enumerate(todo):
         process_update(
             repo, upd, begin_tag, cache, repo_path, work_dir, remote, i, len(todo)
         )
-
-    download_missing(missing)
 
 
 if __name__ == "__main__":
@@ -409,9 +426,9 @@ if __name__ == "__main__":
                 continue
             print(f"Package ({i:04d}/{len(fns)}): {fn}")
 
-            for name, url in src.repos:
+            for name, _, url in src.repos:
                 print(f"  Repo: {name} -> {url}")
-            repos.update(src.repos)
+                repos[name] = url
             seen.add(src.pkg)
 
     for name, url in repos.items():
