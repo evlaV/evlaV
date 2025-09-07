@@ -13,7 +13,7 @@ The design goals for this tool were:
   - Should minimize hard drive access
     - Only the `PKGBUILD` is extracted from each srcpkg
     - Afterwards, local sources are extracted individually to place in the git repo
-    - If `--skip-other-repos` is not used, internal repositories (only) are piece meal extracted and pushed to a remote.
+    - If `--skip-other-repos` is not used, internal (only) repositories are piece meal extracted and pushed to their remote.
 
 ## Usage
 Clone this repository. Then, it is recommended to run `./cache.sh`. This will use `rclone` to pull down the `holo-main` and `jupiter-main` source packages. `rclone` supports multiple HTTP connections per file, so it is very fast. The total download is around 500GB/600GB at the time of writing this and will take 2-4 hours. The other ~100GB will be pulled from the tool.
