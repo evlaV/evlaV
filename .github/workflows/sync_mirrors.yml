@@ -21,15 +21,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Install evlaV
+      - name: Install evlaV and login
         run: |
           pip install -e .
-
-      - name: Login to Github
-        run: |
           git config --global user.name "evlaV bot"
           git config --global user.email "evlav@bazzite.gg"
-          echo "${{ secrets.PUSH_TOKEN }}" | gh auth login --with-token
+          
+          echo "https://x-access-token:${{ secrets.PUSH_TOKEN }}@github.com" >> ~/.git-credentials
+          git config --global credential.helper store
         
       - name: Sync Holo ISO Mirror
         run: |
