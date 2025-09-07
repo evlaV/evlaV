@@ -27,8 +27,10 @@ jobs:
 
       - name: Login to Github
         run: |
+          git config --global user.name "evlaV bot"
+          git config --global user.email "evlav@bazzite.gg"
           echo "${{ secrets.PUSH_TOKEN }}" | gh auth login --with-token
-
+        
       - name: Sync Holo ISO Mirror
         run: |
           evlav holo \
