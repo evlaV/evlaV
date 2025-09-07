@@ -15,6 +15,30 @@ prepare_repo() {
 #     git ls-remote https://github.com/$ORGANIZATION/$1 --json url || gh repo create $ORGANIZATION/$1 --public
 # }
 
+# # Mass push automatically
+# # Adding a username before @ allows for automatically selecting push user
+# prepare_repo() {
+#     set -e
+
+#     # Use a temporary empty repo to clear the remote, except default branch
+#     # You need to make this
+#     # git init --bare tmp
+#     # git -C "$REMOTE/tmp" remote add mirror https://evlav-bot@github.com/evlav/holo
+#     # git -C "$REMOTE/tmp" config http.postBuffer 157286400
+
+#     git -C "$REMOTE/tmp" remote set-url mirror https://evlav-bot@github.com/evlav/$1
+#     git -C "$REMOTE/tmp" push --mirror mirror || true
+#     # Push everything again
+#     echo "Pushing $1 to remote"
+#     git -C "$REMOTE/$1" config http.postBuffer 50000000
+#     if [ $(git -C "$REMOTE/$1" remote | grep mirror) ]; then
+#         git -C "$REMOTE/$1" remote set-url mirror https://evlav-bot@github.com/evlav/$1
+#     else
+#         git -C "$REMOTE/$1" remote add mirror https://evlav-bot@github.com/evlav/$1
+#     fi
+#     git -C "$REMOTE/$1" push --mirror mirror
+# }
+
 # Find all with `python -m evlav.sources <cache>`
 prepare_repo "jupiter"
 prepare_repo "holo"
