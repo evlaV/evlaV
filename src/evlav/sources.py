@@ -263,12 +263,15 @@ def download_missing(missing: dict[str, str]):
     broke = threading.Event()
 
     def worker(q: queue.Queue):
-        while not q.is_shutdown and not broke.is_set():
-            try:
-                fn, url = q.get()
-            except Exception:
-                pass
-            if fn is None or q.is_shutdown:
+        while not broke.is_set():
+            fn = None
+            url = None
+            while fn is None and url is None and not broke.is_set():
+                try:
+                    fn, url = q.get(timeout=0.2)
+                except queue.Empty:
+                    pass
+            if fn is None or url is None or broke.is_set():
                 break
             os.makedirs(os.path.dirname(fn), exist_ok=True)
             name = fn.rsplit("/", 1)[-1]
@@ -278,7 +281,6 @@ def download_missing(missing: dict[str, str]):
             except Exception as e:
                 print(f"Failed to download {name}: {e}")
                 broke.set()
-                q.shutdown(True)
                 break
 
             print(f"Downloaded '{name}'")
@@ -295,10 +297,10 @@ def download_missing(missing: dict[str, str]):
     try:
         for fn, url in missing.items():
             q.put((fn, url))
-            if q.is_shutdown:
+            if broke.is_set():
                 break
 
-        while not broke.is_set() and not q.empty() and not q.is_shutdown:
+        while not broke.is_set() and not q.empty():
             time.sleep(0.2)
     except Exception:
         pass
@@ -307,7 +309,6 @@ def download_missing(missing: dict[str, str]):
         raise RuntimeError("Failed to download some files")
 
     broke.set()
-    q.shutdown(True)
     for t in threads:
         t.join()
 
