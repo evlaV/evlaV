@@ -23,13 +23,13 @@ prepare_repo() {
 prepare_repo_tag "jupiter"
 prepare_repo_tag "holo"
 
+# Jupiter sub-repos
 prepare_repo jupiter-fan-control
 prepare_repo jupiter-hw-support
 prepare_repo jupiter-validation-tools
 
 prepare_repo linux-firmware-neptune
 prepare_repo linux-neptune
-prepare_repo linux-neptune-rtw-debug
 
 prepare_repo foxnetstatsd
 prepare_repo steamos-customizations
