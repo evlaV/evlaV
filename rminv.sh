@@ -3,7 +3,8 @@ CACHE=${1:-cache}
 
 
 # Remove tmp files from crashed runs
-rm -f "$CACHE/*.tar.gz.tmp"
+echo "Removing .tmp files from downloader"
+rm -f "$CACHE/*.tmp"
 
 for fn in "$CACHE"/*; do
     # Skip .sig files
