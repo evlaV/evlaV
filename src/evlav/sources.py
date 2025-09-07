@@ -125,7 +125,7 @@ def extract_sources(fn, tar) -> Sources | None:
                 case x if "linux-neptune" in x:
                     unpack_name = "archlinux-linux-neptune"
                     if "-kasan" in pkgname:
-                        unpack_name += "archlinux-" + pkgname.replace("-kasan", "")
+                        unpack_name = "archlinux-" + pkgname.replace("-kasan", "")
                     repo_name = "linux-integration"
                 case "steamos-customizations-jupiter":
                     repo_name = "steamos-customizations"
