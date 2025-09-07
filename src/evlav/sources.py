@@ -451,6 +451,10 @@ def process_update(
                 )
 
                 # Use --force here to update outdated refs
+                # This can still error out, e.g., somewhere in 2024
+                # branch frog becomes frog/6.11 causing a ref error
+                # The alternative is --mirror, but that can throw out
+                # old branches
                 for t in ["--all", "--tags"]:
                     srun(
                         ["git", "-C", repo_dir, "push", t, "mirror", "--force"],
