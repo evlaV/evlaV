@@ -38,6 +38,11 @@ pip install -e .
 # can e.g., add readmes to that tag if you want.
 ./init.sh
 
+# Optional: use ramdisk scratch dir to avoid scratching your drive
+sudo mkdir /dev/shm/work
+sudo chown $USER /dev/shm/work
+ln -s /dev/shm/work ./work
+
 # Run once per repo
 # By default, the directories ./work (scratch dir), ./cache (tar.gz dir), ./remote (placeholder for a Github Org) are used
 evlav jupiter
