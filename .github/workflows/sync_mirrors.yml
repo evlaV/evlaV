@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   sync-holo:
-    name: Sync Holo ISO Mirror
+    name: Sync Jupiter/Holo Mirrors
     runs-on: ubuntu-latest
     continue-on-error: false
     permissions:
