@@ -10,9 +10,6 @@ from .index import Repository, Update, get_name_from_update
 INTERNAL_CHECK = "internal.steamos.cloud"
 PARALLEL_PULLS = 8
 
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
-
 
 class Sources(NamedTuple):
     pkg: str
@@ -50,79 +47,78 @@ def infer_name(fn: str) -> str | None:
     return None
 
 
-def extract_sources(fn: str) -> Sources | None:
+def extract_sources(fn, tar) -> Sources | None:
     # File is a .tar.gz archive containing a 'PKGBUILD' file
     # The PKGBUILD is a bash script that contains a sources variable
     # The sources variable consists of files (protocol file://) and
     # repos. For repos, we only care to preserve steamos ones
 
-    with tarfile.open(fn, "r:gz") as tar:
-        # Try to infer package name from fn, otherwise find first dir
-        # Structure of name is <name>-<version>-<release>.src.tar.gz
-        # Example: jupiter-3.7.0-1.src.tar.gz
-        pkgname = infer_name(fn)
+    # Try to infer package name from fn, otherwise find first dir
+    # Structure of name is <name>-<version>-<release>.src.tar.gz
+    # Example: jupiter-3.7.0-1.src.tar.gz
+    pkgname = infer_name(fn)
 
-        if not pkgname:
-            logger.warning(f"Could not infer package name from filename {fn}")
-            files = tar.getnames()
-            if not files:
-                logger.warning(f"No files found in archive {fn}")
-                return None
-
-            pkgname = files[0].split("/")[0]
-
-        pkgbuild = tar.extractfile(f"{pkgname}/PKGBUILD")
-        if not pkgbuild:
-            logger.warning(f"No PKGBUILD found in archive {fn}")
+    if not pkgname:
+        print(f"Could not infer package name from filename {fn}")
+        files = tar.getnames()
+        if not files:
+            print(f"No files found in archive {fn}")
             return None
 
-        pkgbuild = pkgbuild.read().decode("utf-8")
-        matches = re.findall(
-            r"^ *?source *?= *?\((.*?)\)", pkgbuild, re.DOTALL | re.MULTILINE
+        pkgname = files[0].split("/")[0]
+
+    pkgbuild = tar.extractfile(f"{pkgname}/PKGBUILD")
+    if not pkgbuild:
+        print(f"No PKGBUILD found in archive {fn}")
+        return None
+
+    pkgbuild = pkgbuild.read().decode("utf-8")
+    matches = re.findall(
+        r"^ *?source *?= *?\((.*?)\)", pkgbuild, re.DOTALL | re.MULTILINE
+    )
+    if not matches:
+        logger.warning(f"No sources found in PKGBUILD {fn}")
+        return Sources(pkgname, files=[], repos=[], pkgbuild=pkgbuild)
+
+    sources = shlex.split(matches[0], comments=True)
+
+    files = []
+    repos = []
+    for src in sources:
+        src = src.replace("${pkgname%-git}", pkgname.replace("-git", "")).replace(
+            "$pkgname", pkgname
         )
-        if not matches:
-            logger.warning(f"No sources found in PKGBUILD {fn}")
-            return Sources(pkgname, files=[], repos=[], pkgbuild=pkgbuild)
 
-        sources = shlex.split(matches[0], comments=True)
+        # Check for git
+        if "git+" in src:
+            if "::" in src:
+                repo_name = src.split("::", 1)[0]
+            else:
+                repo_name = src.split("#", 1)[0].split("/")[-1].replace(".git", "")
+            unpack_name = repo_name
 
-        files = []
-        repos = []
-        for src in sources:
-            src = src.replace("${pkgname%-git}", pkgname.replace("-git", "")).replace(
-                "$pkgname", pkgname
-            )
+            match pkgname:
+                case x if "linux-neptune" in x:
+                    unpack_name = "archlinux-linux-neptune"
+                    repo_name = "linux-neptune"
+                case "steamos-customizations-jupiter":
+                    repo_name = "steamos-customizations"
+                case _:
+                    assert (
+                        "$_srcname" not in repo_name
+                    ), f"Unknown package with $_srcname: {pkgname}"
 
-            # Check for git
-            if "git+" in src:
-                if "::" in src:
-                    repo_name = src.split("::", 1)[0]
-                else:
-                    repo_name = src.split("#", 1)[0].split("/")[-1].replace(".git", "")
-                unpack_name = repo_name
-
-                match pkgname:
-                    case x if "linux-neptune" in x:
-                        unpack_name = "archlinux-linux-neptune"
-                        repo_name = "linux-neptune"
-                    case "steamos-customizations-jupiter":
-                        repo_name = "steamos-customizations"
-                    case _:
-                        assert (
-                            "$_srcname" not in repo_name
-                        ), f"Unknown package with $_srcname: {pkgname}"
-
-                if INTERNAL_CHECK in src:
-                    repos.append((repo_name, unpack_name, src))
-            elif (
-                src
-                and "::" not in src
-                and "http://" not in src
-                and "https://" not in src
-                and "$url" not in src
-            ):
-                # Skip remotes, skip :: which is remotes
-                files.append(src)
+            if INTERNAL_CHECK in src:
+                repos.append((repo_name, unpack_name, src))
+        elif (
+            src
+            and "::" not in src
+            and "http://" not in src
+            and "https://" not in src
+            and "$url" not in src
+        ):
+            # Skip remotes, skip :: which is remotes
+            files.append(src)
 
         return Sources(pkgname, files=files, repos=repos, pkgbuild=pkgbuild)
 
@@ -297,29 +293,30 @@ def process_update(
 
     for pkg in upd.packages:
         pkg_fn = os.path.join(cache, pkg.name)
-        src = extract_sources(pkg_fn)
-        if not src:
-            print(f"Failed to extract sources from {pkg.name}, skipping")
-            continue
 
-        # Remove existing folder
-        pkg_path = os.path.join(repo_path, src.pkg)
-        if os.path.exists(pkg_path):
-            srun(["rm", "-rf", pkg_path])
-        else:
-            added.append(src.pkg)
-        os.makedirs(pkg_path, exist_ok=True)
-
-        # Write PKGBUILD
-        with open(os.path.join(pkg_path, "PKGBUILD"), "w") as f:
-            f.write(src.pkgbuild)
-
-        # Write other files if necessary
-        if not src.files and not src.repos:
-            continue
-
-        print(f"Extracting sources for {pkg.name}")
         with tarfile.open(pkg_fn, "r:gz") as tar:
+            src = extract_sources(pkg.name, tar)
+            if not src:
+                print(f"Failed to extract sources from {pkg.name}, skipping")
+                continue
+
+            # Remove existing folder
+            pkg_path = os.path.join(repo_path, src.pkg)
+            if os.path.exists(pkg_path):
+                srun(["rm", "-rf", pkg_path])
+            else:
+                added.append(src.pkg)
+            os.makedirs(pkg_path, exist_ok=True)
+
+            # Write PKGBUILD
+            with open(os.path.join(pkg_path, "PKGBUILD"), "w") as f:
+                f.write(src.pkgbuild)
+
+            # Write other files if necessary
+            if not src.files and not src.repos:
+                continue
+
+            print(f"Extracting sources for {pkg.name}")
             for fn in src.files:
                 member = tar.getmember(f"{src.pkg}/{fn}")
                 member.name = fn  # Prevent path traversal
@@ -434,9 +431,10 @@ if __name__ == "__main__":
     fns = os.listdir(sys.argv[1])
     for i, fn in enumerate(fns):
         if fn.endswith(".src.tar.gz") and infer_name(fn) not in seen:
-            src = extract_sources(os.path.join(sys.argv[1], fn))
-            if not src:
-                continue
+            with tarfile.open(os.path.join(sys.argv[1], fn), "r:gz") as tar:
+                src = extract_sources(fn, tar)
+                if not src:
+                    continue
             print(f"Package ({i:04d}/{len(fns)}): {fn}")
 
             for name, _, url in src.repos:
