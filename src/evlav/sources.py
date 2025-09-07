@@ -241,11 +241,13 @@ def download_missing(missing: dict[str, str]):
     except Exception:
         pass
 
-    for t in threads:
-        t.join()
-
     if broke.is_set():
         raise RuntimeError("Failed to download some files")
+    
+    broke.set()
+    q.shutdown(True)
+    for t in threads:
+        t.join()
 
 
 def generate_upd_text(repo: Repository, upd: Update, added: list[str]) -> str:
