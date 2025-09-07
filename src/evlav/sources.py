@@ -294,9 +294,11 @@ def process_update(
     total: int,
     skip_other_repos: bool,
     tags: dict[str, str],
+    should_resume: bool = False,
 ):
     tag_name = get_name_from_update(repo, upd)
     if begin_tag is None:
+        assert not should_resume, "Cannot start from the beginning. Did the repo change?"
         begin_hash = "initial"
     else:
         begin_hash = tags[begin_tag]
@@ -405,6 +407,7 @@ def process_repo(
     work_dir: str,
     remote: str,
     skip_other_repos: bool = False,
+    should_resume: bool = False,
 ):
     todo = get_upd_todo(tags, repo.latest, repo, trunk)
 
@@ -432,6 +435,7 @@ def process_repo(
             len(todo),
             skip_other_repos,
             tags,
+            should_resume,
         )
 
 

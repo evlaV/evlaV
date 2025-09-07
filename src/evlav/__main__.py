@@ -59,6 +59,11 @@ def _main():
         help="Skip extracting internal repos for testing.",
     )
     parser.add_argument(
+        "--should-resume",
+        action="store_true",
+        help="Block starting over from the beginning. Prevent damaging repository history in case the index changed.",
+    )
+    parser.add_argument(
         "--user-name",
         type=str,
         default="Evlav Bot",
@@ -79,7 +84,9 @@ def _main():
 
         remote = os.path.abspath(remote)
 
-    repo_path = prepare_repo(args.repo, args.work, remote, args.user_name, args.user_email)
+    repo_path = prepare_repo(
+        args.repo, args.work, remote, args.user_name, args.user_email
+    )
     tags = get_tags(f"{args.work}/{args.repo}", args.version)
 
     trunk, *repos = get_repos(
@@ -99,6 +106,7 @@ def _main():
         work_dir=args.work,
         remote=remote,
         skip_other_repos=args.skip_other_repos,
+        should_resume=args.should_resume,
     )
     for repo in repos:
         process_repo(
@@ -110,13 +118,16 @@ def _main():
             work_dir=args.work,
             remote=remote,
             skip_other_repos=args.skip_other_repos,
+            should_resume=args.should_resume,
         )
+
 
 def main():
     try:
         _main()
     except KeyboardInterrupt:
         print("Interrupted, exiting...")
+
 
 if __name__ == "__main__":
     main()
