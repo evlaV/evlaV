@@ -1,8 +1,8 @@
 name: Sync mirrors
 on:
-  # schedule:
-  #   # Run every 6 hours
-  #   - cron: '0 */6 * * *'
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
   workflow_dispatch:
 
 concurrency:
@@ -30,10 +30,18 @@ jobs:
           echo "https://x-access-token:${{ secrets.PUSH_TOKEN }}@github.com" >> ~/.git-credentials
           git config --global credential.helper store
         
-      - name: Sync Holo ISO Mirror
+      - name: Sync Holo Mirror
         run: |
           evlav holo \
             --readme=./readme-replace.md \
             --pull-remote="git+https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1
+
+      # - name: Sync Jupiter Mirror
+      #   run: |
+      #     evlav jupiter \
+      #       --readme=./readme-replace.md \
+      #       --pull-remote="git+https://github.com/evlav" \
+      #       --remote=https://github.com/evlav \
+      #       --update-interval=1
