@@ -87,7 +87,7 @@ def _main():
     parser.add_argument(
         "--user-name",
         type=str,
-        default="Evlav Bot",
+        default="evlaV Bot",
         help="The username to push as when committing to the git repository.",
     )
     parser.add_argument(
