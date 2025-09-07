@@ -1,7 +1,8 @@
 import argparse
+import os
 
 from .index import get_repos
-from .sources import prepare_repo, get_tags, process_repo
+from .sources import get_tags, prepare_repo, process_repo
 
 
 def _main():
@@ -99,9 +100,6 @@ def _main():
 
     remote = args.remote
     if remote.startswith("./"):
-        # expand relative path
-        import os
-
         remote = os.path.abspath(remote)
 
     # Allow pulling jupiter and holo in parallel
