@@ -26,6 +26,7 @@ class Repository(NamedTuple):
     url: str
     latest: Update
 
+
 class IndexParser(HTMLParser):
 
     def __init__(self, name_filter: str | None = ".tar.gz"):
@@ -150,8 +151,17 @@ def process_index(data: BufferedReader):
 
 
 def get_name_from_update(repo: Repository, update: Update) -> str:
-    date_str = update.date.strftime("%y%m%d-%H%MZ")
-    return f"{repo.branch}-{repo.version}-{date_str}"
+    curr = repo.latest
+    cdate = update.date.date()
+    multiple_same_day = False
+    while curr:
+        if curr != update and curr.date.date() == cdate:
+            multiple_same_day = True
+            break
+        curr = curr.prev
+    
+    date_str = update.date.strftime("%y%m%d-%H%MZ" if multiple_same_day else "%y%m%d")
+    return f"{repo.version}-{date_str}"
 
 
 def viz_timeline(timeline: list[Update], repo: Repository):
