@@ -42,8 +42,8 @@ ln -s /dev/shm/work ./work
 
 # Run once per repo
 # By default, the directories ./work (scratch dir), ./cache (tar.gz dir), ./remote (placeholder for a Github Org) are used
-evlav jupiter
 evlav holo
+evlav jupiter
 ```
 
 The tool will automatically resume from the last point it was ran. Use `evlav --help` to find out more options.
