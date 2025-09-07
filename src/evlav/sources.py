@@ -139,21 +139,30 @@ def prepare_repo(repo: str, work: str, remote: str, name: str, email: str):
     return repo_path
 
 
-def get_tags(repo_path: str) -> list[str]:
-    import subprocess
+def get_tags(repo_path: str, versions: list[str]) -> dict[str, str]:
+    print("Extracting versions from git...")
+    tags = []
+    for v in versions:
+        try:
+            out = (
+                srun(["git", "-C", repo_path, "log", "origin/" + v, '--format="%H:%s"'])
+                .strip()
+                .split("\n")
+            )
+            tags.extend(out)
+        except RuntimeError:
+            pass
 
-    result = subprocess.run(
-        ["git", "-C", repo_path, "tag"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    tags = result.stdout.strip().split("\n")
-    return tags
+    mapping = {}
+    for t in tags:
+        ghash, tag, *_ = t.split(":", 2)
+        mapping[tag.strip('"')] = ghash.strip('"')
+
+    return mapping
 
 
 def get_upd_todo(
-    tags: list[str], latest: Update, branch: Repository, trunk: Repository | None
+    tags: dict[str, str], latest: Update, branch: Repository, trunk: Repository | None
 ) -> list[tuple[Update, str | None]]:
     todo = []
     curr = latest
@@ -284,11 +293,14 @@ def process_update(
     i: int,
     total: int,
     skip_other_repos: bool,
+    tags: dict[str, str],
 ):
     tag_name = get_name_from_update(repo, upd)
     if begin_tag is None:
-        begin_tag = "initial"
-    srun(["git", "-C", repo_path, "checkout", begin_tag])
+        begin_hash = "initial"
+    else:
+        begin_hash = tags[begin_tag]
+    srun(["git", "-C", repo_path, "checkout", begin_hash])
     added = []
 
     for pkg in upd.packages:
@@ -367,11 +379,11 @@ def process_update(
             upd.date.isoformat(),
         ]
     )
-    srun(["git", "-C", repo_path, "tag", tag_name])
+    ghash = srun(["git", "-C", repo_path, "rev-parse", "HEAD"])
+    tags[tag_name] = ghash
 
     if (i + 1) % 1 == 0 or i + 1 == total:
         # print(f"Pushing to remote {remote}...")
-        srun(["git", "-C", repo_path, "push", "origin", "--tags"])
         srun(
             [
                 "git",
@@ -379,7 +391,7 @@ def process_update(
                 repo_path,
                 "push",
                 "origin",
-                f"{tag_name}:refs/heads/{repo.version}",
+                f"{ghash}:refs/heads/{repo.version}",
             ]
         )
 
@@ -388,7 +400,7 @@ def process_repo(
     repo: Repository,
     trunk: Repository | None,
     cache: str,
-    tags: list[str],
+    tags: dict[str, str],
     repo_path: str,
     work_dir: str,
     remote: str,
@@ -419,6 +431,7 @@ def process_repo(
             i,
             len(todo),
             skip_other_repos,
+            tags,
         )
 
 

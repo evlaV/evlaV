@@ -80,7 +80,7 @@ def _main():
         remote = os.path.abspath(remote)
 
     repo_path = prepare_repo(args.repo, args.work, remote, args.user_name, args.user_email)
-    tags = get_tags(f"{args.work}/{args.repo}")
+    tags = get_tags(f"{args.work}/{args.repo}", args.version)
 
     trunk, *repos = get_repos(
         repo=args.repo,
