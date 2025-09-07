@@ -437,7 +437,7 @@ def process_update(
                         remote + "/" + repo_name,
                     ]
                 )
-                srun(["git", "-C", repo_dir, "push", "--mirror", "mirror"])
+                srun(["git", "-C", repo_dir, "push", "--all", "mirror"])
 
                 # Save memory
                 shutil.rmtree(repo_dir)
