@@ -11,6 +11,7 @@ INTERNAL_CHECK = "steamos.cloud"
 PARALLEL_PULLS = 8
 MAX_SUBJ_PACKAGES = 6
 
+
 class Sources(NamedTuple):
     pkg: str
     files: list[str]
@@ -81,7 +82,7 @@ def extract_sources(fn, tar) -> Sources | None:
         return Sources(pkgname, files=[], repos=[], pkgbuild=pkgbuild)
 
     sources = shlex.split(matches[0], comments=True)
-    
+
     files = []
     repos = []
     for src in sources:
@@ -128,11 +129,13 @@ def extract_sources(fn, tar) -> Sources | None:
 def prepare_repo(repo: str, work: str, remote: str, name: str, email: str):
     import shutil
 
-    if os.path.exists(work):
-        shutil.rmtree(work)
-    os.makedirs(work, exist_ok=True)
+    if not os.path.exists(work):
+        os.makedirs(work, exist_ok=True)
 
     repo_path = f"{work}/{repo}"
+    if os.path.exists(repo_path):
+        shutil.rmtree(repo_path)
+
     srun(["git", "clone", f"{remote}/{repo}", repo_path])
     srun(["git", "-C", repo_path, "config", "user.name", name])
     srun(["git", "-C", repo_path, "config", "user.email", email])
@@ -300,7 +303,9 @@ def process_update(
 ):
     tag_name = get_name_from_update(repo, upd)
     if begin_tag is None:
-        assert not should_resume, "Cannot start from the beginning. Did the repo change?"
+        assert (
+            not should_resume
+        ), "Cannot start from the beginning. Did the repo change?"
         begin_hash = "initial"
     else:
         begin_hash = tags[begin_tag]
