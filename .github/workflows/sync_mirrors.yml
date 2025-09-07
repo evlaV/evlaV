@@ -1,0 +1,36 @@
+name: Sync mirrors
+on:
+  # schedule:
+  #   # Run every 6 hours
+  #   - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  sync-holo:
+    name: Sync Holo ISO Mirror
+    runs-on: ubuntu-latest
+    continue-on-error: false
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install evlaV
+        run: |
+          pip install -e .
+      
+      - name: Sync Holo ISO Mirror
+        run: |
+          evlav holo \
+            --readme=./readme-replace.md \
+            --pull-remote="git+https://github.com/evlav" \
+            --remote=https://github.com/evlav \
+            --update-interval=1
