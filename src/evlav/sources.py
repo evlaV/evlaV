@@ -1,9 +1,10 @@
 import logging
 import os
 import re
+import shlex
+import shutil
 import tarfile
 from typing import NamedTuple
-import shlex
 
 from .index import Repository, Update, get_name_from_update
 
@@ -342,7 +343,7 @@ def process_update(
             # Remove existing folder
             pkg_path = os.path.join(repo_path, src.pkg)
             if os.path.exists(pkg_path):
-                srun(["rm", "-rf", pkg_path])
+                shutil.rmtree(pkg_path)
             else:
                 added.append(src.pkg)
             os.makedirs(pkg_path, exist_ok=True)
@@ -369,13 +370,13 @@ def process_update(
                 # Extract repo from tar
                 pkg_name = src.pkg
 
-                def filter_repo(tarinfo):
+                def filter_repo(tarinfo, root):
                     if tarinfo.name.startswith(f"{pkg_name}/{unpack_name}/"):
                         tarinfo.name = tarinfo.name.split("/", 1)[1]
                         return tarinfo
                     return None
 
-                tar.extractall(path=work_dir, members=filter(filter_repo, tar))
+                tar.extractall(path=work_dir, filter=filter_repo)
 
                 # Add remote and push everything
                 srun(
@@ -390,6 +391,9 @@ def process_update(
                     ]
                 )
                 srun(["git", "-C", repo_dir, "push", "--mirror", "mirror"])
+                
+                # Save memory
+                shutil.rmtree(repo_dir)
 
     upd_text = generate_upd_text(repo, upd, added)
     print(f"Update ({i:04d}/{total}): {upd_text}\n")
