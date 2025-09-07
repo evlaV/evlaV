@@ -7,7 +7,7 @@ import shlex
 
 from .index import Repository, Update, get_name_from_update
 
-INTERNAL_CHECK = "internal.steamos.cloud"
+INTERNAL_CHECK = "steamos.cloud"
 PARALLEL_PULLS = 8
 MAX_SUBJ_PACKAGES = 6
 
@@ -81,7 +81,7 @@ def extract_sources(fn, tar) -> Sources | None:
         return Sources(pkgname, files=[], repos=[], pkgbuild=pkgbuild)
 
     sources = shlex.split(matches[0], comments=True)
-
+    
     files = []
     repos = []
     for src in sources:
@@ -100,9 +100,11 @@ def extract_sources(fn, tar) -> Sources | None:
             match pkgname:
                 case x if "linux-neptune" in x:
                     unpack_name = "archlinux-linux-neptune"
-                    repo_name = "linux-neptune"
+                    repo_name = "linux-integration"
                 case "steamos-customizations-jupiter":
                     repo_name = "steamos-customizations"
+                case x if "mesa" in x:
+                    repo_name = "mesa"
                 case _:
                     assert (
                         "$_srcname" not in repo_name
@@ -120,7 +122,7 @@ def extract_sources(fn, tar) -> Sources | None:
             # Skip remotes, skip :: which is remotes
             files.append(src)
 
-        return Sources(pkgname, files=files, repos=repos, pkgbuild=pkgbuild)
+    return Sources(pkgname, files=files, repos=repos, pkgbuild=pkgbuild)
 
 
 def prepare_repo(repo: str, work: str, remote: str, name: str, email: str):

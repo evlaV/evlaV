@@ -29,9 +29,11 @@ prepare_repo jupiter-hw-support
 prepare_repo jupiter-validation-tools
 
 prepare_repo linux-firmware-neptune
-prepare_repo linux-neptune
+prepare_repo linux-integration
+prepare_repo mesa
 
 prepare_repo foxnetstatsd
 prepare_repo steamos-customizations
 prepare_repo vpower
 prepare_repo xserver-jupiter
+prepare_repo steamos-devkit-service
