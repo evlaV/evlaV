@@ -48,6 +48,12 @@ def infer_name(fn: str) -> str | None:
     return None
 
 
+def infer_version(fn: str) -> str:
+    suffix = fn.rsplit("-", 2)[-2]
+    suffix = suffix.replace(".src.tar.gz", "")
+    return suffix
+
+
 def extract_sources(fn, tar) -> Sources | None:
     # File is a .tar.gz archive containing a 'PKGBUILD' file
     # The PKGBUILD is a bash script that contains a sources variable
@@ -58,6 +64,7 @@ def extract_sources(fn, tar) -> Sources | None:
     # Structure of name is <name>-<version>-<release>.src.tar.gz
     # Example: jupiter-3.7.0-1.src.tar.gz
     pkgname = infer_name(fn)
+    pkgver = infer_version(fn)
 
     if not pkgname:
         print(f"Could not infer package name from filename {fn}")
@@ -80,14 +87,19 @@ def extract_sources(fn, tar) -> Sources | None:
     if not matches:
         print(f"No sources found in PKGBUILD {fn}")
         return Sources(pkgname, files=[], repos=[], pkgbuild=pkgbuild)
-
     sources = shlex.split(matches[0], comments=True)
 
     files = []
     repos = []
     for src in sources:
-        src = src.replace("${pkgname%-git}", pkgname.replace("-git", "")).replace(
-            "$pkgname", pkgname
+        src = (
+            src.replace("${pkgname%-git}", pkgname.replace("-git", ""))
+            .replace("$pkgname", pkgname)
+            .replace("${pkgname}", pkgname)
+            .replace("${pkgbase%-git}", pkgname.replace("-git", ""))
+            .replace("${pkgname%-*}", pkgname.rsplit("-", 1)[0])
+            .replace("$pkgbase", pkgname)
+            .replace("$pkgver", pkgver)
         )
 
         # Check for git
@@ -106,6 +118,12 @@ def extract_sources(fn, tar) -> Sources | None:
                     repo_name = "steamos-customizations"
                 case x if "mesa" in x:
                     repo_name = "mesa"
+                case x if "steamos-manager" in x:
+                    repo_name = "steamos-manager"
+                case x if "holo-keyring" in x:
+                    repo_name = "holo-keyring"
+                case x if "holo-rust-packaging-tools" in x:
+                    repo_name = "holo-rust-packaging-tools"
                 case _:
                     assert (
                         "$_srcname" not in repo_name
@@ -461,10 +479,10 @@ if __name__ == "__main__":
                     continue
             print(f"Package ({i:04d}/{len(fns)}): {fn}")
 
-            for name, _, url in src.repos:
-                print(f"  Repo: {name} -> {url}")
-                repos[name] = url
+            for name, unpack, url in src.repos:
+                print(f"  Repo: {name} -> {unpack}:: {url}")
+                repos[name] = (unpack, url)
             seen.add(src.pkg)
 
-    for name, url in repos.items():
-        print(f"Repo: {name} -> {url}")
+    for name, (unpack, url) in repos.items():
+        print(f"{name:40s} -> {unpack}:: {url}")
