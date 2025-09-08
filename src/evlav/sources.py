@@ -12,14 +12,10 @@ PARALLEL_PULLS = 8
 MAX_SUBJ_PACKAGES = 6
 
 INTERNAL_REPLACE = [
-    "git+ssh://git@gitlab.internal.steamos.cloud/jupiter",
-    "git+ssh://git@gitlab.internal.steamos.cloud:/steam",
-    "git+ssh://git@gitlab.steamos.cloud/jupiter",
-    "git+ssh://git@gitlab.steamos.cloud/endrift",
-    "git+ssh://git@gitlab.steamos.cloud/holo",
-    "git+https://gitlab.steamos.cloud/devkit",
-    "git+https://gitlab.steamos.cloud/jupiter",
-    "git+https://gitlab.steamos.cloud/steam",
+    r"ssh:\/\/git@gitlab.internal.steamos.cloud:?\/[a-z0-9_-]+",
+    r"ssh:\/\/git@gitlab.steamos.cloud\/[a-z0-9_-]+",
+    # Holo-team is used for issues
+    r"https:\/\/gitlab.steamos.cloud\/(?!holo-team)[a-z0-9_-]+",
 ]
 
 
@@ -102,13 +98,23 @@ def extract_sources(fn, tar) -> Sources | None:
         return None
 
     pkgbuild = pkgbuild.read().decode("utf-8")
+    sources = []
     matches = re.findall(
-        r"^ *?source *?= *?\((.*?)\)", pkgbuild, re.DOTALL | re.MULTILINE
+        r"^ *(?:source|install) *= *(\(.*?(?:\(.*?\).*?)?\)|(?!\().*?$)",
+        pkgbuild,
+        re.DOTALL | re.MULTILINE,
     )
-    if not matches:
-        print(f"No sources found in PKGBUILD {fn}")
-        return Sources(pkgname, files=[], repos=[], pkgbuild=pkgbuild)
-    sources = shlex.split(matches[0], comments=True)
+    for m in matches:
+        sources.extend(shlex.split(m.strip("()"), comments=True))
+
+    urlm = re.findall(
+        r"^ *url *= *(\(.*?(?:\(.*?\).*?)?\)|(?!\().*?$)",
+        pkgbuild,
+        re.DOTALL | re.MULTILINE,
+    )
+    url = None
+    if urlm:
+        url = shlex.split(urlm[0].strip("()"), comments=True)[0]
 
     files = []
     repos = []
@@ -123,6 +129,13 @@ def extract_sources(fn, tar) -> Sources | None:
             .replace("$pkgver", pkgver)
         )
 
+        assert url or (
+            "${url}" not in src and "$url" not in src
+        ), f"URL variable in {pkgname} but no url set"
+
+        if url:
+            src = src.replace("$url", url).replace("${url}", url)
+
         # Check for git
         if "git+" in src or "git://" in src:
             if "::" in src:
@@ -131,6 +144,8 @@ def extract_sources(fn, tar) -> Sources | None:
                 repo_name = src.split("#", 1)[0].split("/")[-1].replace(".git", "")
             unpack_name = repo_name
 
+            # Name fixups for internal repos
+            internal_repo = True
             match pkgname:
                 case x if "linux-neptune" in x:
                     unpack_name = "archlinux-linux-neptune"
@@ -144,17 +159,28 @@ def extract_sources(fn, tar) -> Sources | None:
                 case x if "steamos-manager" in x:
                     repo_name = "steamos-manager"
                 case x if "holo-keyring" in x:
-                    repo_name = "holo-keyring"
+                    repo_name = "archlinux-keyring"
                 case x if "holo-rust-packaging-tools" in x:
-                    repo_name = "holo-rust-packaging-tools"
+                    repo_name = "rust-packaging"
+                case x if "steamos-atomupd-client" in x:
+                    repo_name = "steamos-atomupd"
                 case "xorg-xwayland-jupiter":
                     repo_name = "xserver"
+                case x if "atomupd-daemon" in x:
+                    repo_name = "atomupd-daemon"
+                case x if "steamos-networking-tools" in x:
+                    # The repo here does not exist/is used
+                    continue
+                case x if "steamos-repair-tool" in x:
+                    # Too large to be uploaded to github
+                    continue
                 case _:
+                    internal_repo = INTERNAL_CHECK in src
                     assert (
                         "$_srcname" not in repo_name
                     ), f"Unknown package with $_srcname: {pkgname}"
 
-            if INTERNAL_CHECK in src:
+            if internal_repo:
                 repos.append((repo_name, unpack_name, src))
         elif (
             src
@@ -164,6 +190,7 @@ def extract_sources(fn, tar) -> Sources | None:
             and "$url" not in src
             and "${url}" not in src
             and "$_source_base" not in src
+            and "[@]" not in src
         ):
             # Skip remotes, skip :: which is remotes
             files.append(src)
@@ -378,8 +405,8 @@ def process_update(
             with open(readme, "r") as f:
                 readme_text = f.read()
                 readme_text = readme_text.replace(
-                    "<replace-repo>", repo.branch.capitalize()
-                )
+                    "<replace-repo>", repo.branch
+                ).replace("<replace-repo-cap>", repo.branch.capitalize())
             with open(os.path.join(repo_path, "readme.md"), "w") as f:
                 f.write(readme_text)
             srun(["git", "-C", repo_path, "add", "readme.md"])
@@ -410,7 +437,7 @@ def process_update(
                 pkgbuild = src.pkgbuild
                 if pull_remote:
                     for pattern in INTERNAL_REPLACE:
-                        pkgbuild = pkgbuild.replace(pattern, pull_remote)
+                        pkgbuild = re.sub(pattern, pull_remote, pkgbuild)
                 f.write(pkgbuild)
 
             # Write other files if necessary

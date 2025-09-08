@@ -34,7 +34,7 @@ jobs:
         run: |
           evlav holo \
             --readme=./readme-replace.md \
-            --pull-remote="git+https://github.com/evlav" \
+            --pull-remote="https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1 \
             --should-resume
@@ -43,7 +43,7 @@ jobs:
         run: |
           evlav jupiter \
             --readme=./readme-replace.md \
-            --pull-remote="git+https://github.com/evlav" \
+            --pull-remote="https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1 \
             --should-resume

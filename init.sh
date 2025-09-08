@@ -59,9 +59,12 @@ prepare_repo steamos-devkit-service
 prepare_repo steamos-efi
 prepare_repo steamos-log-submitter
 prepare_repo steamos-powerbuttond
-prepare_repo steamos-atomupd-client
+prepare_repo steamos-atomupd
 prepare_repo steamos-manager
 prepare_repo steamos-media-creation
+prepare_repo steamos-repair-backend
+prepare_repo steamos-repair-tool
+prepare_repo steamos-reset
 prepare_repo steamdeck-kde-presets
 
 prepare_repo ds-inhibit
@@ -69,9 +72,10 @@ prepare_repo powerbuttond
 prepare_repo valve-hardware-audio-processing
 prepare_repo xdg-desktop-portal-gamescope
 prepare_repo xdg-desktop-portal-holo
-prepare_repo holo-keyring
-prepare_repo holo-rust-packaging-tools
+prepare_repo archlinux-keyring
+prepare_repo rust-packaging
 
+prepare_repo atomupd-daemon
 prepare_repo foxnetstatsd
 prepare_repo galileo-mura-extractor
 prepare_repo upower
