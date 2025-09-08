@@ -15,6 +15,7 @@ INTERNAL_REPLACE = [
     "git+ssh://git@gitlab.internal.steamos.cloud/jupiter",
     "git+ssh://git@gitlab.internal.steamos.cloud:/steam",
     "git+ssh://git@gitlab.steamos.cloud/jupiter",
+    "git+ssh://git@gitlab.steamos.cloud/endrift",
     "git+https://gitlab.steamos.cloud/devkit",
     "git+https://gitlab.steamos.cloud/jupiter",
     "git+https://gitlab.steamos.cloud/steam",
