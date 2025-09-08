@@ -455,9 +455,22 @@ def process_update(
                 # branch frog becomes frog/6.11 causing a ref error
                 # The alternative is --mirror, but that can throw out
                 # old branches
-                for t in ["--all", "--tags"]:
+                srun(
+                    ["git", "-C", repo_dir, "push", "--all", "mirror", "--force"],
+                )
+                if "mesa" in repo_name:
+                    # Only push steamos tags, unfortunately certain mesa tags are corrupted
+                    steamos_tags = [
+                        t
+                        for t in srun(["git", "-C", repo_dir, "tag"]).split("\n")
+                        if "steamos" in t
+                    ]
                     srun(
-                        ["git", "-C", repo_dir, "push", t, "mirror", "--force"],
+                        ["git", "-C", repo_dir, "push", "mirror"] + steamos_tags,
+                    )
+                else:
+                    srun(
+                        ["git", "-C", repo_dir, "push", "--tags", "mirror", "--force"],
                     )
 
                 # Save memory
