@@ -2,13 +2,13 @@ name: Sync mirrors
 on:
   schedule:
     # Run every 6 hours
-    - cron: '0 */6 * * *'
+    - cron: "0 */6 * * *"
   workflow_dispatch:
     inputs:
       force:
         type: boolean
         # Staging seems to be regenerated often, so we want to force push
-        description: 'Force push on diverge'
+        description: "Force push on diverge"
         default: false
 
 concurrency:
@@ -32,10 +32,10 @@ jobs:
           pip install -e .
           git config --global user.name "evlaV bot"
           git config --global user.email "evlav@bazzite.gg"
-          
+
           echo "https://x-access-token:${{ secrets.PUSH_TOKEN }}@github.com" >> ~/.git-credentials
           git config --global credential.helper store
-        
+
       - name: Sync Holo/Jupiter Mirrors
         run: |
           ARGS=()
@@ -45,7 +45,7 @@ jobs:
 
           evlav \
             --readme=./readme-replace.md \
-            --replacement-url="https://github.com/evlav" \
+            --replace-url="https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1 \
             $ARGS
