@@ -122,6 +122,13 @@ def _main():
     all_tags = {}
     repo_paths = {}
     for r in args.repo:
+        trunk, *rest = get_repos(
+            repo=r,
+            versions=args.version,
+            sources=args.sources,
+            cache=args.cache,
+            skip_existing=args.skip_existing,
+        )
         if push_all:
             tags = {}
             repo_paths[r] = ""
@@ -131,13 +138,6 @@ def _main():
                 r, args.work, remote, args.user_name, args.user_email
             )
         all_tags[r] = tags
-        trunk, *rest = get_repos(
-            repo=r,
-            versions=args.version,
-            sources=args.sources,
-            cache=args.cache,
-            skip_existing=args.skip_existing,
-        )
         repo_data[r] = (trunk, rest)
         pairs.append((trunk, None, tags))
         for r in rest:
