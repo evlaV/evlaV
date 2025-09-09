@@ -534,7 +534,7 @@ def process_update(
                 "push",
                 "origin",
                 f"{ghash}:refs/heads/{repo.version}",
-                *["--force" if not should_resume else ""],
+                *(["--force"] if not should_resume else []),
             ]
         )
 
