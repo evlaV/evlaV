@@ -4,6 +4,11 @@ on:
     # Run every 6 hours
     - cron: '0 */6 * * *'
   workflow_dispatch:
+    inputs:
+      force:
+        description: 'Force push on diverge (e.g., staging)'
+        required: false
+        default: 'false'
 
 concurrency:
   group: ${{ github.workflow }}
@@ -32,18 +37,30 @@ jobs:
         
       - name: Sync Holo Mirror
         run: |
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            export FORCE=""
+          else
+            export FORCE="--should-resume"
+          fi
+
           evlav holo \
             --readme=./readme-replace.md \
             --pull-remote="https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1 \
-            --should-resume
+            $FORCE
 
       - name: Sync Jupiter Mirror
         run: |
+          if [ "${{ github.event.inputs.force }}" = "true" ]; then
+            export FORCE=""
+          else
+            export FORCE="--should-resume"
+          fi
+
           evlav jupiter \
             --readme=./readme-replace.md \
             --pull-remote="https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1 \
-            --should-resume
+            $FORCE
