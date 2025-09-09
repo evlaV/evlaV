@@ -45,7 +45,7 @@ jobs:
 
           evlav \
             --readme=./readme-replace.md \
-            --pull-remote="https://github.com/evlav" \
+            --replacement-url="https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1 \
             $ARGS

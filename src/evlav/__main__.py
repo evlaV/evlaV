@@ -51,11 +51,11 @@ def _main():
         help="Path to the output remote. This will be where all the versioned repositories are stored. Can be a local path or a github org.",
     )
     parser.add_argument(
-        "--pull-remote",
+        "--replace-url",
         type=str,
         required=False,
         default=None,
-        help="Path to the final pull remote. Used to fixup the PKGBUILD files. Format: 'git+https://github.com/<org>'",
+        help="Path to the replacement URL. Used to fixup the PKGBUILD files. Format: 'git+https://github.com/<org>'",
     )
     parser.add_argument(
         "--readme",
@@ -164,7 +164,7 @@ def _main():
             work_dir=args.work,
             remote=remote,
             should_resume=args.should_resume,
-            pull_remote=args.pull_remote,
+            pull_remote=args.replacement_url,
             readme=args.readme,
             update_interval=args.update_interval,
             force_push=args.force_push,
