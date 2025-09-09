@@ -114,7 +114,6 @@ def _main():
 
     if args.repo == "pushall":
         # The last pushed package has the most up to date branches
-        # With --push-latest, we ensure we push those branches
         repos = [
             *get_repos(
                 repo="holo",
