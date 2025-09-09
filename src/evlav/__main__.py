@@ -130,13 +130,13 @@ def _main():
             skip_existing=args.skip_existing,
         )
         if push_all:
-            tags = {}
             repo_paths[r] = ""
+            tags = {}
         else:
-            tags = get_tags(f"{args.work}/{r}", args.version)
             repo_paths[r] = prepare_repo(
                 r, args.work, remote, args.user_name, args.user_email
             )
+            tags = get_tags(f"{args.work}/{r}", args.version)
         all_tags[r] = tags
         repo_data[r] = (trunk, rest)
         pairs.append((trunk, None, tags))
