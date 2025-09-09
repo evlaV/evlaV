@@ -9,7 +9,7 @@ from .index import Repository, Update
 
 INTERNAL_CHECK = "steamos.cloud"
 PARALLEL_PULLS = 8
-MAX_SUBJ_PACKAGES = 6
+MAX_SUBJ_PACKAGES = 9
 
 INTERNAL_REPLACE = [
     r"ssh:\/\/git@gitlab.internal.steamos.cloud:?\/[a-z0-9_-]+",
@@ -363,7 +363,7 @@ def generate_upd_text(repo: Repository, upd: Update, added: list[str]) -> str:
     else:
         pkgs = ""
 
-    if len(pkg_names):
+    if pkg_names:
         if len(pkg_names) <= MAX_SUBJ_PACKAGES:
             pkgs += f"update " + ", ".join(pkg_names)
         else:
