@@ -7,7 +7,12 @@ on:
     inputs:
       force:
         type: boolean
-        description: 'Force push on diverge (e.g., staging)'
+        # Staging seems to be regenerated often, so we want to force push
+        description: 'Force push on diverge'
+        default: false
+      skip_repos:
+        type: boolean
+        description: 'Skip pushing repos'
         default: false
 
 concurrency:
@@ -37,10 +42,12 @@ jobs:
         
       - name: Sync Holo Mirror
         run: |
-          if [ "${{ github.event.inputs.force }}" = "true" ]; then
-            export FORCE=""
-          else
-            export FORCE="--should-resume"
+          ARGS=()
+          if [ "${{ github.event.inputs.force }}" != "true" ]; then
+            ARGS+=("--should-resume")
+          fi
+          if [ "${{ github.event.inputs.skip_repos }}" = "true" ]; then
+            ARGS+=("--skip-other-repos")
           fi
 
           evlav holo \
@@ -48,14 +55,16 @@ jobs:
             --pull-remote="https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1 \
-            $FORCE
+            $ARGS
 
       - name: Sync Jupiter Mirror
         run: |
-          if [ "${{ github.event.inputs.force }}" = "true" ]; then
-            export FORCE=""
-          else
-            export FORCE="--should-resume"
+          ARGS=()
+          if [ "${{ github.event.inputs.force }}" != "true" ]; then
+            ARGS+=("--should-resume")
+          fi
+          if [ "${{ github.event.inputs.skip_repos }}" = "true" ]; then
+            ARGS+=("--skip-other-repos")
           fi
 
           evlav jupiter \
@@ -63,4 +72,4 @@ jobs:
             --pull-remote="https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1 \
-            $FORCE
+            $ARGS
