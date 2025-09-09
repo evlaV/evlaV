@@ -2,7 +2,7 @@ import argparse
 import os
 
 from .index import get_repos
-from .sources import get_tags, prepare_repo, process_repo
+from .sources import get_tags, prepare_repo, process_repo, find_and_push_latest
 
 
 def _main():
@@ -76,6 +76,11 @@ def _main():
         help="Skip refreshing indexes for testing.",
     )
     parser.add_argument(
+        "--push-latest",
+        action="store_true",
+        help="Instead of syncing the repository, check the cache for latest packages and push them.",
+    )
+    parser.add_argument(
         "--skip-other-repos",
         action="store_true",
         help="Skip extracting internal repos for testing.",
@@ -123,25 +128,14 @@ def _main():
         skip_existing=args.skip_existing,
     )
 
-    process_repo(
-        trunk,
-        trunk=None,
-        cache=args.cache,
-        tags=tags,
-        repo_path=repo_path,
-        work_dir=work,
-        remote=remote,
-        skip_other_repos=args.skip_other_repos,
-        should_resume=args.should_resume,
-        pull_remote=args.pull_remote,
-        readme=args.readme,
-        update_interval=args.update_interval,
-        force_push=args.force_push,
-    )
-    for repo in repos:
+    if args.push_latest:
+        # The last pushed package has the most up to date branches
+        # With --push-latest, we ensure we push those branches
+        find_and_push_latest(args.cache, work, remote, trunk, repos)
+    else:
         process_repo(
-            repo,
-            trunk=trunk,
+            trunk,
+            trunk=None,
             cache=args.cache,
             tags=tags,
             repo_path=repo_path,
@@ -154,6 +148,22 @@ def _main():
             update_interval=args.update_interval,
             force_push=args.force_push,
         )
+        for repo in repos:
+            process_repo(
+                repo,
+                trunk=trunk,
+                cache=args.cache,
+                tags=tags,
+                repo_path=repo_path,
+                work_dir=work,
+                remote=remote,
+                skip_other_repos=args.skip_other_repos,
+                should_resume=args.should_resume,
+                pull_remote=args.pull_remote,
+                readme=args.readme,
+                update_interval=args.update_interval,
+                force_push=args.force_push,
+            )
 
 
 def main():

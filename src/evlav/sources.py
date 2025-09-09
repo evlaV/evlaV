@@ -26,6 +26,19 @@ class Sources(NamedTuple):
     pkgbuild: str
 
 
+def run(
+    cmd: list[str],
+    env: dict[str, str] | None = None,
+    error: bool = True,
+):
+    import subprocess
+
+    result = subprocess.run(cmd, env=env)
+    if result.returncode != 0:
+        if error:
+            raise RuntimeError(f"Command {' '.join(cmd)} failed")
+
+
 def srun(
     cmd: list[str],
     env: dict[str, str] | None = None,
@@ -591,16 +604,13 @@ def process_repo(
         )
 
 
-if __name__ == "__main__":
-    # Find out which repos we need to push
-    import sys
-
+def check_repos(cache: str):
     repos = {}
     seen = set()
-    fns = os.listdir(sys.argv[1])
+    fns = os.listdir(cache)
     for i, fn in enumerate(fns):
         if fn.endswith(".src.tar.gz") and infer_name(fn) not in seen:
-            with tarfile.open(os.path.join(sys.argv[1], fn), "r:gz") as tar:
+            with tarfile.open(os.path.join(cache, fn), "r:gz") as tar:
                 src = extract_sources(fn, tar)
                 if not src:
                     continue
@@ -613,3 +623,111 @@ if __name__ == "__main__":
 
     for name, (unpack, url) in repos.items():
         print(f"{name:40s} -> {unpack}:: {url}")
+
+
+def find_and_push_latest(
+    cache: str,
+    work_dir: str,
+    remote: str,
+    trunk: Repository | None,
+    repos: list[Repository],
+):
+    packages = {}
+    for repo in (trunk, *repos):
+        if not repo:
+            continue
+        upd = repo.latest
+        while upd:
+            for pkg in upd.packages:
+                name = infer_name(pkg.name)
+                if not name:
+                    print(f"Could not infer name from {pkg.name}, skipping")
+                    continue
+                if name not in packages or packages[name][-1] < upd.date:
+                    packages[name] = (pkg, repo, upd.date)
+            upd = upd.prev
+
+    print(f"Found {len(packages)} unique packages to push")
+
+    missing = {}
+    for name, (pkg, repo, _) in packages.items():
+        fn = os.path.join(cache, pkg.name)
+        if not os.path.exists(fn) and fn not in missing:
+            missing[fn] = repo.url + "/" + pkg.link
+
+    download_missing(missing)
+
+    for name, (pkg, repo, _) in packages.items():
+        pkg_fn = os.path.join(cache, pkg.name)
+
+        with tarfile.open(pkg_fn, "r:gz") as tar:
+            src = extract_sources(pkg.name, tar)
+            if not src:
+                print(f"Failed to extract sources from {pkg.name}, skipping")
+                continue
+
+            for repo_name, unpack_name, _ in src.repos:
+                repo_dir = os.path.join(work_dir, unpack_name)
+                if os.path.exists(repo_dir):
+                    srun(["rm", "-rf", repo_dir])
+
+                print(f"Pushing repo {repo_name} from package {pkg.name}")
+
+                # Extract repo from tar
+                pkg_name = src.pkg
+
+                def filter_repo(tarinfo, root):
+                    if tarinfo.name.startswith(f"{pkg_name}/{unpack_name}/"):
+                        tarinfo.name = tarinfo.name.split("/", 1)[1]
+                        return tarinfo
+                    return None
+
+                tar.extractall(path=work_dir, filter=filter_repo)
+
+                # Add remote and push everything
+                srun(
+                    [
+                        "git",
+                        "-C",
+                        repo_dir,
+                        "remote",
+                        "add",
+                        "mirror",
+                        remote + "/" + repo_name,
+                    ]
+                )
+
+                # Use --force here to update outdated refs
+                # This can still error out, e.g., somewhere in 2024
+                # branch frog becomes frog/6.11 causing a ref error
+                # The alternative is --mirror, but that can throw out
+                # old branches
+                run(
+                    ["git", "-C", repo_dir, "push", "--all", "mirror", "--force"],
+                )
+                if "mesa" in repo_name:
+                    # Only push steamos tags, unfortunately certain mesa tags are corrupted
+                    steamos_tags = [
+                        t
+                        for t in srun(["git", "-C", repo_dir, "tag"]).split("\n")
+                        if "steamos" in t
+                    ]
+                    run(
+                        ["git", "-C", repo_dir, "push", "mirror"] + steamos_tags,
+                    )
+                else:
+                    run(
+                        ["git", "-C", repo_dir, "push", "--tags", "mirror", "--force"],
+                    )
+
+                # Save memory
+                shutil.rmtree(repo_dir)
+
+
+if __name__ == "__main__":
+    # Find out which repos we need to push
+    import sys
+
+    if len(sys.argv) >= 2 and sys.argv[1] == "--check-repos":
+        assert len(sys.argv) == 3
+        check_repos(sys.argv[2])
