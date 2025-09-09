@@ -1,3 +1,4 @@
+import logging
 import os
 import re
 import shlex
@@ -6,6 +7,8 @@ import tarfile
 from typing import NamedTuple
 
 from .index import Repository, Update
+
+logger = logging.getLogger(__name__)
 
 INTERNAL_CHECK = "steamos.cloud"
 PARALLEL_PULLS = 8
@@ -50,9 +53,9 @@ def srun(
     result = subprocess.run(cmd, capture_output=True, text=True, env=env)
     if result.returncode != 0:
         if not silent:
-            print(f"Command failed with code {result.returncode}")
-            print(f"stdout: {result.stdout}")
-            print(f"stderr: {result.stderr}")
+            logger.info(f"Command failed with code {result.returncode}")
+            logger.info(f"stdout: {result.stdout}")
+            logger.info(f"stderr: {result.stderr}")
         if error:
             raise RuntimeError(f"Command {' '.join(cmd)} failed")
         else:
@@ -97,17 +100,17 @@ def extract_sources(fn, tar) -> Sources | None:
     pkgver = infer_version(fn)
 
     if not pkgname:
-        print(f"Could not infer package name from filename {fn}")
+        logger.info(f"Could not infer package name from filename {fn}")
         files = tar.getnames()
         if not files:
-            print(f"No files found in archive {fn}")
+            logger.info(f"No files found in archive {fn}")
             return None
 
         pkgname = files[0].split("/")[0]
 
     pkgbuild = tar.extractfile(f"{pkgname}/PKGBUILD")
     if not pkgbuild:
-        print(f"No PKGBUILD found in archive {fn}")
+        logger.info(f"No PKGBUILD found in archive {fn}")
         return None
 
     pkgbuild = pkgbuild.read().decode("utf-8")
@@ -235,7 +238,7 @@ def get_name_from_update(repo: Repository, update: Update) -> str:
 
 
 def get_tags(repo_path: str, versions: list[str]) -> dict[str, str]:
-    print("Extracting versions from git...")
+    logger.info("Extracting versions from git...")
     tags = []
     for v in versions:
         try:
@@ -305,7 +308,7 @@ def download_missing(missing: dict[str, str]):
     if not missing:
         return
 
-    print(f"Downloading {len(missing)} missing files...")
+    logger.info(f"Downloading {len(missing)} missing files...")
 
     import queue
     import threading
@@ -330,11 +333,11 @@ def download_missing(missing: dict[str, str]):
                 srun(["curl", "-sSL", url, "-o", f"{fn}.tmp"])
                 os.rename(f"{fn}.tmp", fn)
             except Exception as e:
-                print(f"Failed to download {name}: {e}")
+                logger.info(f"Failed to download {name}: {e}")
                 broke.set()
                 break
 
-            print(f"Downloaded '{name}'")
+            logger.info(f"Downloaded '{name}'")
             q.task_done()
 
     q = queue.Queue()
@@ -432,7 +435,7 @@ def process_update(
         with tarfile.open(pkg_fn, "r:gz") as tar:
             src = extract_sources(pkg.name, tar)
             if not src:
-                print(f"Failed to extract sources from {pkg.name}, skipping")
+                logger.info(f"Failed to extract sources from {pkg.name}, skipping")
                 continue
 
             # Remove existing folder
@@ -455,14 +458,14 @@ def process_update(
             if not src.files and not src.repos:
                 continue
 
-            print(f"Extracting sources for {pkg.name}")
+            logger.info(f"Extracting sources for {pkg.name}")
             for fn in src.files:
                 member = tar.getmember(f"{src.pkg}/{fn}")
                 member.name = fn  # Prevent path traversal
                 tar.extract(member, pkg_path)
 
     upd_text = generate_upd_text(repo, upd, added)
-    print(f"Update ({i:04d}/{total}): {upd_text}\n")
+    logger.info(f"Update ({i:04d}/{total}): {upd_text}\n")
     srun(["git", "-C", repo_path, "add", "."])
     srun(
         [
@@ -510,7 +513,7 @@ def process_repo(
 ):
     todo = get_upd_todo(tags, repo.latest, repo, trunk)
 
-    print(f"Processing {repo.name} ({len(todo)} updates to apply)")
+    logger.info(f"Processing {repo.name} ({len(todo)} updates to apply)")
 
     missing = {}
     for upd, _ in todo:
@@ -552,15 +555,15 @@ def check_repos(cache: str):
                 src = extract_sources(fn, tar)
                 if not src:
                     continue
-            print(f"Package ({i:04d}/{len(fns)}): {fn}")
+            logger.info(f"Package ({i:04d}/{len(fns)}): {fn}")
 
             for name, unpack, url in src.repos:
-                print(f"  Repo: {name} -> {unpack}:: {url}")
+                logger.info(f"  Repo: {name} -> {unpack}:: {url}")
                 repos[name] = (unpack, url)
             seen.add(src.pkg)
 
     for name, (unpack, url) in repos.items():
-        print(f"{name:40s} -> {unpack}:: {url}")
+        logger.info(f"{name:40s} -> {unpack}:: {url}")
 
 
 def find_and_push_latest(
@@ -608,7 +611,7 @@ def find_and_push_latest(
             if name not in whitelist:
                 continue
             if not name:
-                print(f"Could not infer name from {pkg.name}, skipping")
+                logger.info(f"Could not infer name from {pkg.name}, skipping")
                 continue
 
             # Avoid pushing older variants
@@ -632,7 +635,7 @@ def find_and_push_latest(
             if name not in packages or packages[name][-1] < upd.date:
                 packages[name] = (pkg, repo, upd.date)
 
-    print(f"Found {len(packages)} packages to push")
+    logger.info(f"Found {len(packages)} packages to push")
 
     missing = {}
     for name, (pkg, repo, _) in packages.items():
@@ -648,7 +651,7 @@ def find_and_push_latest(
         with tarfile.open(pkg_fn, "r:gz") as tar:
             src = extract_sources(pkg.name, tar)
             if not src:
-                print(f"Failed to extract sources from {pkg.name}, skipping")
+                logger.info(f"Failed to extract sources from {pkg.name}, skipping")
                 continue
 
             for repo_name, unpack_name, _ in src.repos:
@@ -656,7 +659,7 @@ def find_and_push_latest(
                 if os.path.exists(repo_dir):
                     srun(["rm", "-rf", repo_dir])
 
-                print(f"Pushing repo {repo_name} from package {pkg.name}")
+                logger.info(f"Pushing repo {repo_name} from package {pkg.name}")
 
                 # Extract repo from tar
                 pkg_name = src.pkg

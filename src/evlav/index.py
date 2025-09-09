@@ -1,8 +1,11 @@
+import logging
 import os
 from datetime import datetime
 from html.parser import HTMLParser
 from io import BufferedReader
 from typing import Literal, NamedTuple
+
+logger = logging.getLogger(__name__)
 
 
 class Package(NamedTuple):
@@ -160,11 +163,11 @@ def get_repos(
 
         if not skip_existing or not os.path.exists(fn):
             url = f"{sources}/{repo}-{v}/"
-            print(f"Downloading index for {repo}:{v} from {url}")
+            logger.info(f"Downloading index for {repo}:{v} from {url}")
             os.makedirs(cache, exist_ok=True)
             os.system(f"curl -sSL {url} -o {fn}")
         else:
-            print(f"Using cached index for {repo}:{v}")
+            logger.info(f"Using cached index for {repo}:{v}")
 
         with open(fn, "rb") as f:
             timeline = process_index(f)

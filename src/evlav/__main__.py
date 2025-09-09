@@ -1,8 +1,11 @@
 import argparse
+import logging
 import os
 
 from .index import get_repos
-from .sources import get_tags, prepare_repo, process_repo, find_and_push_latest
+from .sources import find_and_push_latest, get_tags, prepare_repo, process_repo
+
+logger = logging.getLogger(__name__)
 
 
 def _main():
@@ -164,7 +167,7 @@ def _main():
             work_dir=args.work,
             remote=remote,
             should_resume=args.should_resume,
-            pull_remote=args.replacement_url,
+            pull_remote=args.replace_url,
             readme=args.readme,
             update_interval=args.update_interval,
             force_push=args.force_push,
@@ -179,7 +182,7 @@ def _main():
                 work_dir=args.work,
                 remote=remote,
                 should_resume=args.should_resume,
-                pull_remote=args.pull_remote,
+                pull_remote=args.replace_url,
                 readme=args.readme,
                 update_interval=args.update_interval,
                 force_push=args.force_push,
@@ -187,10 +190,23 @@ def _main():
 
 
 def main():
+    class StreamFlushingHandler(logging.StreamHandler):
+        def emit(self, record):
+            super().emit(record)
+            self.flush()
+
+    logging.basicConfig(
+        level=logging.INFO,
+        # Format: INFO(HH:MM): message
+        format="%(levelname)s: %(message)s",
+        datefmt="%H:%M",
+        handlers=[StreamFlushingHandler()],
+    )
+
     try:
         _main()
     except KeyboardInterrupt:
-        print("Interrupted, exiting...")
+        logger.info("Interrupted, exiting...")
 
 
 if __name__ == "__main__":
