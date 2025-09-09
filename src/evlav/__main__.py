@@ -150,9 +150,10 @@ def _main():
 
     # First, update internal repos
     # In case of failure, we avoid updating jupiter/holo and losing track
-    find_and_push_latest(
-        args.cache, args.work, remote, pairs, push_all, args.should_resume
-    )
+    if not args.skip_other_repos:
+        find_and_push_latest(
+            args.cache, args.work, remote, pairs, push_all, args.should_resume
+        )
     if push_all:
         return
 
