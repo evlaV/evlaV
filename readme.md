@@ -7,7 +7,7 @@ It has two primary functions:
   - Reconstruct the repository history by traversing all packages
     - This allows checking out the state of the repository **at any given time**
 
-Initially, this tool travered all versions of each package to create internal repositories. However, it was found that all source packages contain all important tags. Traversing all packages just added noise and all PRs. So now, only the last version is used. 
+Initially, this tool travered all versions of each package to create internal repositories. However, it was found that all source packages contain all important tags. Traversing all packages just added noise and stale PRs. So now, only the last version is used.
 
 ## Usage
 Clone this repository. Then, it is recommended to run `./cache.sh`. This will use `rclone` to pull down the `holo-main` and `jupiter-main` source packages. `rclone` supports multiple HTTP connections per file, so it is very fast. The total download is around 500GB/600GB at the time of writing this and will take 2-4 hours. The other ~100GB will be pulled from the tool.
