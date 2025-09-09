@@ -362,6 +362,7 @@ def download_missing(missing: dict[str, str]):
     if broke.is_set():
         raise RuntimeError("Failed to download some files")
 
+    q.join()
     broke.set()
     for t in threads:
         t.join()
