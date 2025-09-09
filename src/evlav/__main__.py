@@ -84,7 +84,7 @@ def _main():
     parser.add_argument(
         "--push-other-repos",
         action="store_true",
-        help="Push all internal repositories and skip updating repositories.",
+        help="Push all internal repositories and skip updating package repositories.",
     )
     parser.add_argument(
         "--should-resume",
