@@ -648,8 +648,6 @@ def find_and_push_latest(
 
     for name, (pkg, repo, _) in packages.items():
         pkg_fn = os.path.join(cache, pkg.name)
-        logger.info(pkg_fn)
-        logger.info(os.path.exists(pkg_fn))
 
         with tarfile.open(pkg_fn, "r:gz") as tar:
             src = extract_sources(pkg.name, tar)
