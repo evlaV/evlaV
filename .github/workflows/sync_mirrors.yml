@@ -6,9 +6,9 @@ on:
   workflow_dispatch:
     inputs:
       force:
+        type: boolean
         description: 'Force push on diverge (e.g., staging)'
-        required: false
-        default: 'false'
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}
