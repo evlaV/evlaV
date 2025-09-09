@@ -363,10 +363,11 @@ def generate_upd_text(repo: Repository, upd: Update, added: list[str]) -> str:
     else:
         pkgs = ""
 
-    if len(pkg_names) <= MAX_SUBJ_PACKAGES:
-        pkgs += f"update " + ", ".join(pkg_names)
-    else:
-        pkgs += f"update {len(pkg_names)} packages"
+    if len(pkg_names):
+        if len(pkg_names) <= MAX_SUBJ_PACKAGES:
+            pkgs += f"update " + ", ".join(pkg_names)
+        else:
+            pkgs += f"update {len(pkg_names)} packages"
 
     lines = [
         f"{repo.version}: {pkgs}",
