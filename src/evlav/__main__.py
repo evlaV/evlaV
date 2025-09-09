@@ -10,16 +10,17 @@ def _main():
         description="SteamOS sources repository sync script."
     )
     parser.add_argument(
-        "repo",
-        type=str,
-        default="holo",
-        help="Repository to sync ('holo' or 'jupiter').",
-    )
-    parser.add_argument(
         "--sources",
         type=str,
         default="https://steamdeck-packages.steamos.cloud/archlinux-mirror/sources",
         help="URL to the sources repository.",
+    )
+    parser.add_argument(
+        "--repo",
+        type=str,
+        help="Repositories to sync ('holo' or 'jupiter').",
+        nargs="+",
+        default=["holo", "jupiter"],
     )
     parser.add_argument(
         "-v",
@@ -81,6 +82,11 @@ def _main():
         help="Skip extracting internal repos for testing.",
     )
     parser.add_argument(
+        "--push-other-repos",
+        action="store_true",
+        help="Push all internal repositories and skip updating repositories.",
+    )
+    parser.add_argument(
         "--should-resume",
         action="store_true",
         help="Block starting over from the beginning. Prevent damaging repository history in case the index changed.",
@@ -109,41 +115,45 @@ def _main():
     if remote.startswith("./"):
         remote = os.path.abspath(remote)
 
-    # Allow pulling jupiter and holo in parallel
-    work = os.path.join(args.work, args.repo)
-
-    if args.repo == "pushall":
-        # The last pushed package has the most up to date branches
-        repos = [
-            *get_repos(
-                repo="holo",
-                versions=args.version,
-                sources=args.sources,
-                cache=args.cache,
-                skip_existing=args.skip_existing,
-            ),
-            *get_repos(
-                repo="jupiter",
-                versions=args.version,
-                sources=args.sources,
-                cache=args.cache,
-                skip_existing=args.skip_existing,
-            ),
-        ]
-        find_and_push_latest(args.cache, work, remote, repos)
-    else:
-        repo_path = prepare_repo(
-            args.repo, work, remote, args.user_name, args.user_email
-        )
-        tags = get_tags(f"{work}/{args.repo}", args.version)
-
-        trunk, *repos = get_repos(
-            repo=args.repo,
+    # Find repository pairs
+    pairs = []
+    push_all = args.push_other_repos
+    repo_data = {}
+    all_tags = {}
+    repo_paths = {}
+    for r in args.repo:
+        if push_all:
+            tags = {}
+            repo_paths[r] = ""
+        else:
+            tags = get_tags(f"{args.work}/{r}", args.version)
+            repo_paths[r] = prepare_repo(
+                r, args.work, remote, args.user_name, args.user_email
+            )
+        all_tags[r] = tags
+        trunk, *rest = get_repos(
+            repo=r,
             versions=args.version,
             sources=args.sources,
             cache=args.cache,
             skip_existing=args.skip_existing,
         )
+        repo_data[r] = (trunk, rest)
+        pairs.append((trunk, None, tags))
+        for r in rest:
+            pairs.append((r, trunk, tags))
+
+    # First, update internal repos
+    # In case of failure, we avoid updating jupiter/holo and losing track
+    find_and_push_latest(args.cache, args.work, remote, pairs, push_all)
+    if push_all:
+        return
+
+    # Update repositories
+    for name in args.repo:
+        trunk, repos = repo_data[name]
+        repo_path = repo_paths[name]
+        tags = all_tags[name]
 
         process_repo(
             trunk,
@@ -151,9 +161,8 @@ def _main():
             cache=args.cache,
             tags=tags,
             repo_path=repo_path,
-            work_dir=work,
+            work_dir=args.work,
             remote=remote,
-            skip_other_repos=args.skip_other_repos,
             should_resume=args.should_resume,
             pull_remote=args.pull_remote,
             readme=args.readme,
@@ -167,9 +176,8 @@ def _main():
                 cache=args.cache,
                 tags=tags,
                 repo_path=repo_path,
-                work_dir=work,
+                work_dir=args.work,
                 remote=remote,
-                skip_other_repos=args.skip_other_repos,
                 should_resume=args.should_resume,
                 pull_remote=args.pull_remote,
                 readme=args.readme,

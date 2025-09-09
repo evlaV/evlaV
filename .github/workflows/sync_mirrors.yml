@@ -10,10 +10,6 @@ on:
         # Staging seems to be regenerated often, so we want to force push
         description: 'Force push on diverge'
         default: false
-      skip_repos:
-        type: boolean
-        description: 'Skip pushing repos'
-        default: false
 
 concurrency:
   group: ${{ github.workflow }}
@@ -40,34 +36,14 @@ jobs:
           echo "https://x-access-token:${{ secrets.PUSH_TOKEN }}@github.com" >> ~/.git-credentials
           git config --global credential.helper store
         
-      - name: Sync Holo Mirror
+      - name: Sync Holo/Jupiter Mirrors
         run: |
           ARGS=()
           if [ "${{ github.event.inputs.force }}" != "true" ]; then
             ARGS+=("--should-resume")
           fi
-          if [ "${{ github.event.inputs.skip_repos }}" = "true" ]; then
-            ARGS+=("--skip-other-repos")
-          fi
 
-          evlav holo \
-            --readme=./readme-replace.md \
-            --pull-remote="https://github.com/evlav" \
-            --remote=https://github.com/evlav \
-            --update-interval=1 \
-            $ARGS
-
-      - name: Sync Jupiter Mirror
-        run: |
-          ARGS=()
-          if [ "${{ github.event.inputs.force }}" != "true" ]; then
-            ARGS+=("--should-resume")
-          fi
-          if [ "${{ github.event.inputs.skip_repos }}" = "true" ]; then
-            ARGS+=("--skip-other-repos")
-          fi
-
-          evlav jupiter \
+          evlav \
             --readme=./readme-replace.md \
             --pull-remote="https://github.com/evlav" \
             --remote=https://github.com/evlav \

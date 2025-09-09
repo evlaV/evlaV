@@ -2,18 +2,18 @@
 This is a little tool that can convert an Arch srcpkg repository to a set of git repositories. It is primarily designed to work on SteamOS repositories and designed to replace [srcpkg2git](https://gitlab.com/evlaV/srcpkg2git). 
 
 The design goals for this tool were:
-  - Should be able to run locally
+  - Should run locally
     - Without internet if nothing changed
-  - Should be able to run from a github action
+  - Should run from a github action
     - Only downloading what was changed since last run
     - I.e., take a few minutes to run
     - If no update was done, should only ping a few index files so it can run multiple times a day
-  - Should be able to reconstruct the entire history from scratch
+  - Should reconstruct the entire history from scratch
     - This would allow re-constructing the repos if something changes
   - Should minimize hard drive access
     - Only the `PKGBUILD` is extracted from each srcpkg
-    - Afterwards, local sources are extracted individually to place in the git repo
-    - If `--skip-other-repos` is not used, internal (only) repositories are piece meal extracted and pushed to their remote.
+    - Based on `PKGBUILD` sources, local sources are extracted individually to place in the package repository
+    - To mirror internal repos, the only the latest version of each package is checked for them. If they exist, they are extracted and `git push --mirror`ed to the remote.
 
 ## Usage
 Clone this repository. Then, it is recommended to run `./cache.sh`. This will use `rclone` to pull down the `holo-main` and `jupiter-main` source packages. `rclone` supports multiple HTTP connections per file, so it is very fast. The total download is around 500GB/600GB at the time of writing this and will take 2-4 hours. The other ~100GB will be pulled from the tool.
@@ -40,12 +40,22 @@ sudo mkdir /dev/shm/work
 sudo chown $USER /dev/shm/work
 ln -s /dev/shm/work ./work
 
-# Run once per repo
-# By default, the directories ./work (scratch dir), ./cache (tar.gz dir), ./remote (placeholder for a Github Org) are used
-evlav holo
-evlav jupiter
+# Push internal package repos to ./remote
+# Latest version only, with `git push --mirror`. Reflects internal repo 1-1
+# Old branches from old packages might be missing;
+# that's okay, it prevents drift and important tags are in all source packages
+evlav --push-other-repos
+# Reconstruct jupiter and holo histories
+evlav --skip-other-repos
+
+# For incremental updates, calculate missing updates in jupiter/holo, then:
+# 1) For each latest version of an updated package, mirror its internal repo
+# 2) Only if successful, update holo/jupiter to reflect the last version
+# (avoids missing updates in case of a crash)
+# Running from scratch, this is equivalent to the commands above.
+evlav
 ```
 
 The tool will automatically resume from the last point it was ran. Use `evlav --help` to find out more options.
 
-To reconstruct the whole history, the tool requires around 1-3 hours. If ran with `--skip-other-repos` to just regenerate `holo` and `jupiter`, it takes less than 1 hour.
+To reconstruct the whole history and update all internal repositories, the tool requires ~40m.

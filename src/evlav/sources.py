@@ -398,11 +398,8 @@ def process_update(
     begin_tag: str | None,
     cache: str,
     repo_path: str,
-    work_dir: str,
-    remote: str,
     i: int,
     total: int,
-    skip_other_repos: bool,
     tags: dict[str, str],
     should_resume: bool = False,
     pull_remote: str | None = None,
@@ -464,61 +461,6 @@ def process_update(
                 member.name = fn  # Prevent path traversal
                 tar.extract(member, pkg_path)
 
-            for repo_name, unpack_name, _ in src.repos if not skip_other_repos else []:
-                repo_dir = os.path.join(work_dir, unpack_name)
-                if os.path.exists(repo_dir):
-                    srun(["rm", "-rf", repo_dir])
-
-                # Extract repo from tar
-                pkg_name = src.pkg
-
-                def filter_repo(tarinfo, root):
-                    if tarinfo.name.startswith(f"{pkg_name}/{unpack_name}/"):
-                        tarinfo.name = tarinfo.name.split("/", 1)[1]
-                        return tarinfo
-                    return None
-
-                tar.extractall(path=work_dir, filter=filter_repo)
-
-                # Add remote and push everything
-                srun(
-                    [
-                        "git",
-                        "-C",
-                        repo_dir,
-                        "remote",
-                        "add",
-                        "mirror",
-                        remote + "/" + repo_name,
-                    ]
-                )
-
-                # Use --force here to update outdated refs
-                # This can still error out, e.g., somewhere in 2024
-                # branch frog becomes frog/6.11 causing a ref error
-                # The alternative is --mirror, but that can throw out
-                # old branches
-                srun(
-                    ["git", "-C", repo_dir, "push", "--all", "mirror", "--force"],
-                )
-                if "mesa" in repo_name:
-                    # Only push steamos tags, unfortunately certain mesa tags are corrupted
-                    steamos_tags = [
-                        t
-                        for t in srun(["git", "-C", repo_dir, "tag"]).split("\n")
-                        if "steamos" in t
-                    ]
-                    srun(
-                        ["git", "-C", repo_dir, "push", "mirror"] + steamos_tags,
-                    )
-                else:
-                    srun(
-                        ["git", "-C", repo_dir, "push", "--tags", "mirror", "--force"],
-                    )
-
-                # Save memory
-                shutil.rmtree(repo_dir)
-
     upd_text = generate_upd_text(repo, upd, added)
     print(f"Update ({i:04d}/{total}): {upd_text}\n")
     srun(["git", "-C", repo_path, "add", "."])
@@ -560,7 +502,6 @@ def process_repo(
     repo_path: str,
     work_dir: str,
     remote: str,
-    skip_other_repos: bool = False,
     should_resume: bool = False,
     pull_remote: str | None = None,
     readme: str | None = None,
@@ -591,11 +532,8 @@ def process_repo(
             begin_tag,
             cache,
             repo_path,
-            work_dir,
-            remote,
             i,
             len(todo),
-            skip_other_repos,
             tags,
             should_resume_branch,
             pull_remote,
@@ -629,39 +567,72 @@ def find_and_push_latest(
     cache: str,
     work_dir: str,
     remote: str,
-    repos: list[Repository],
+    pairs: list[tuple[Repository, Repository | None, dict[str, str]]],
+    push_all: bool = True,
 ):
-    packages = {}
-    for repo in repos:
-        if not repo:
-            continue
+    all_upds: list[Update] = []
+    upds: list[Update] = []
+
+    # Grab all updates from all repos
+    for repo, trunk, tags in pairs:
         upd = repo.latest
         while upd:
-            for pkg in upd.packages:
-                name = infer_name(pkg.name)
-                if not name:
-                    print(f"Could not infer name from {pkg.name}, skipping")
-                    continue
-
-                # Avoid pushing older variants
-                if "linux-neptune" in name:
-                    name = "linux-neptune"
-                if "mesa" in name:
-                    name = "mesa"
-                if "jupiter-fan-cont" in name:
-                    name = "jupiter-fan-control"
-                if "steamos-customizations" in name:
-                    name = "steamos-customizations"
-                if "steamos-atomupd-client" in name:
-                    name = "steamos-atomupd"
-                if "atomupd-daemon" in name:
-                    name = "atomupd-daemon"
-
-                if name not in packages or packages[name][-1] < upd.date:
-                    packages[name] = (pkg, repo, upd.date)
+            all_upds.append(upd)
             upd = upd.prev
 
-    print(f"Found {len(packages)} unique packages to push")
+    # Depending on what we do, use all updates
+    # Or only the missing ones
+    if push_all:
+        upds = all_upds
+    else:
+        for repo, trunk, tags in pairs:
+            for upd, _ in get_upd_todo(tags, repo.latest, repo, trunk):
+                upds.append(upd)
+
+    # Create list of updated packages
+    whitelist = set()
+    for upd in upds:
+        for pkg in upd.packages:
+            name = infer_name(pkg.name)
+            if name:
+                whitelist.add(name)
+
+    # Find the latest update for each package
+    # out of all updates. This is done in case a crash causes
+    # us to e.g., update main but not 3.5. If we only looked in upds
+    # we would end up pushing outdated packages
+    packages = {}
+    for upd in all_upds:
+        for pkg in upd.packages:
+            name = infer_name(pkg.name)
+            if name not in whitelist:
+                continue
+            if not name:
+                print(f"Could not infer name from {pkg.name}, skipping")
+                continue
+
+            # Avoid pushing older variants
+            if "linux-neptune" in name:
+                name = "linux-neptune"
+            if "mesa" in name:
+                name = "mesa"
+            if "jupiter-fan-cont" in name:
+                name = "jupiter-fan-control"
+            if "steamos-customizations" in name:
+                name = "steamos-customizations"
+            if "steamos-atomupd-client" in name:
+                name = "steamos-atomupd"
+            if "atomupd-daemon" in name:
+                name = "atomupd-daemon"
+            if "linux-firmware" in name:
+                name = "linux-firmware"
+            if "keyring" in name:
+                name = "holo-keyring"
+
+            if name not in packages or packages[name][-1] < upd.date:
+                packages[name] = (pkg, repo, upd.date)
+
+    print(f"Found {len(packages)} packages to push")
 
     missing = {}
     for name, (pkg, repo, _) in packages.items():
@@ -699,7 +670,7 @@ def find_and_push_latest(
                 tar.extractall(path=work_dir, filter=filter_repo)
 
                 # Add remote and push everything
-                srun(
+                run(
                     [
                         "git",
                         "-C",
@@ -709,15 +680,6 @@ def find_and_push_latest(
                         "mirror",
                         remote + "/" + repo_name,
                     ]
-                )
-
-                # Use --force here to update outdated refs
-                # This can still error out, e.g., somewhere in 2024
-                # branch frog becomes frog/6.11 causing a ref error
-                # The alternative is --mirror, but that can throw out
-                # old branches
-                run(
-                    ["git", "-C", repo_dir, "push", "--all", "mirror", "--force"],
                 )
                 if "mesa" in repo_name:
                     # Only push steamos tags, unfortunately certain mesa tags are corrupted
@@ -729,9 +691,21 @@ def find_and_push_latest(
                     run(
                         ["git", "-C", repo_dir, "push", "mirror"] + steamos_tags,
                     )
+                    run(
+                        [
+                            "git",
+                            "-C",
+                            repo_dir,
+                            "push",
+                            "--all",
+                            "mirror",
+                            "--force",
+                            "--prune",
+                        ],
+                    )
                 else:
                     run(
-                        ["git", "-C", repo_dir, "push", "--tags", "mirror", "--force"],
+                        ["git", "-C", repo_dir, "push", "--mirror", "mirror"],
                     )
 
                 # Save memory
