@@ -574,14 +574,14 @@ def find_and_push_latest(
     pairs: list[tuple[Repository, Repository | None, dict[str, str]]],
     push_all: bool = True,
 ):
-    all_upds: list[Update] = []
-    upds: list[Update] = []
+    all_upds: list[tuple[Repository, Update]] = []
+    upds: list[tuple[Repository, Update]] = []
 
     # Grab all updates from all repos
     for repo, trunk, tags in pairs:
         upd = repo.latest
         while upd:
-            all_upds.append(upd)
+            all_upds.append((repo, upd))
             upd = upd.prev
 
     # Depending on what we do, use all updates
@@ -591,11 +591,11 @@ def find_and_push_latest(
     else:
         for repo, trunk, tags in pairs:
             for upd, _ in get_upd_todo(tags, repo.latest, repo, trunk):
-                upds.append(upd)
+                upds.append((repo, upd))
 
     # Create list of updated packages
     whitelist = set()
-    for upd in upds:
+    for repo, upd in upds:
         for pkg in upd.packages:
             name = infer_name(pkg.name)
             if name:
@@ -606,7 +606,7 @@ def find_and_push_latest(
     # us to e.g., update main but not 3.5. If we only looked in upds
     # we would end up pushing outdated packages
     packages = {}
-    for upd in all_upds:
+    for repo, upd in all_upds:
         for pkg in upd.packages:
             name = infer_name(pkg.name)
             if name not in whitelist:
