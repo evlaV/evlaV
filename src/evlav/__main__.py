@@ -30,6 +30,13 @@ def _main():
         help="Versions to sync (default: all supported). WARNING: The first version MUST ALWAYS be the trunk version (i.e., main).",
     )
     parser.add_argument(
+        "--force-push",
+        type=str,
+        nargs="+",
+        default=["staging"],
+        help="Versions to force push. This is useful for branches that are rebased often.",
+    )
+    parser.add_argument(
         "--cache",
         type=str,
         default="./cache",
@@ -129,6 +136,7 @@ def _main():
         pull_remote=args.pull_remote,
         readme=args.readme,
         update_interval=args.update_interval,
+        force_push=args.force_push,
     )
     for repo in repos:
         process_repo(
@@ -144,6 +152,7 @@ def _main():
             pull_remote=args.pull_remote,
             readme=args.readme,
             update_interval=args.update_interval,
+            force_push=args.force_push,
         )
 
 

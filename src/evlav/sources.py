@@ -552,6 +552,7 @@ def process_repo(
     pull_remote: str | None = None,
     readme: str | None = None,
     update_interval: int = 1,
+    force_push: list[str] | None = None,
 ):
     todo = get_upd_todo(tags, repo.latest, repo, trunk)
 
@@ -567,6 +568,10 @@ def process_repo(
     download_missing(missing)
 
     for i, (upd, begin_tag) in enumerate(todo):
+        should_resume_branch = should_resume and (
+            not force_push or repo.version not in force_push
+        )
+
         process_update(
             repo,
             upd,
@@ -579,7 +584,7 @@ def process_repo(
             len(todo),
             skip_other_repos,
             tags,
-            should_resume,
+            should_resume_branch,
             pull_remote,
             readme,
             update_interval,
