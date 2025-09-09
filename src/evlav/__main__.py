@@ -76,11 +76,6 @@ def _main():
         help="Skip refreshing indexes for testing.",
     )
     parser.add_argument(
-        "--push-latest",
-        action="store_true",
-        help="Instead of syncing the repository, check the cache for latest packages and push them.",
-    )
-    parser.add_argument(
         "--skip-other-repos",
         action="store_true",
         help="Skip extracting internal repos for testing.",
@@ -117,22 +112,40 @@ def _main():
     # Allow pulling jupiter and holo in parallel
     work = os.path.join(args.work, args.repo)
 
-    repo_path = prepare_repo(args.repo, work, remote, args.user_name, args.user_email)
-    tags = get_tags(f"{work}/{args.repo}", args.version)
-
-    trunk, *repos = get_repos(
-        repo=args.repo,
-        versions=args.version,
-        sources=args.sources,
-        cache=args.cache,
-        skip_existing=args.skip_existing,
-    )
-
-    if args.push_latest:
+    if args.repo == "pushall":
         # The last pushed package has the most up to date branches
         # With --push-latest, we ensure we push those branches
-        find_and_push_latest(args.cache, work, remote, trunk, repos)
+        repos = [
+            *get_repos(
+                repo="holo",
+                versions=args.version,
+                sources=args.sources,
+                cache=args.cache,
+                skip_existing=args.skip_existing,
+            ),
+            *get_repos(
+                repo="jupiter",
+                versions=args.version,
+                sources=args.sources,
+                cache=args.cache,
+                skip_existing=args.skip_existing,
+            ),
+        ]
+        find_and_push_latest(args.cache, work, remote, repos)
     else:
+        repo_path = prepare_repo(
+            args.repo, work, remote, args.user_name, args.user_email
+        )
+        tags = get_tags(f"{work}/{args.repo}", args.version)
+
+        trunk, *repos = get_repos(
+            repo=args.repo,
+            versions=args.version,
+            sources=args.sources,
+            cache=args.cache,
+            skip_existing=args.skip_existing,
+        )
+
         process_repo(
             trunk,
             trunk=None,

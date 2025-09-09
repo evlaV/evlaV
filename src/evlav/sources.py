@@ -629,11 +629,10 @@ def find_and_push_latest(
     cache: str,
     work_dir: str,
     remote: str,
-    trunk: Repository | None,
     repos: list[Repository],
 ):
     packages = {}
-    for repo in (trunk, *repos):
+    for repo in repos:
         if not repo:
             continue
         upd = repo.latest
@@ -655,6 +654,8 @@ def find_and_push_latest(
                     name = "steamos-customizations"
                 if "steamos-atomupd-client" in name:
                     name = "steamos-atomupd"
+                if "atomupd-daemon" in name:
+                    name = "atomupd-daemon"
 
                 if name not in packages or packages[name][-1] < upd.date:
                     packages[name] = (pkg, repo, upd.date)
