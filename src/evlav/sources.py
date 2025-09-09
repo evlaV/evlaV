@@ -643,6 +643,19 @@ def find_and_push_latest(
                 if not name:
                     print(f"Could not infer name from {pkg.name}, skipping")
                     continue
+
+                # Avoid pushing older variants
+                if "linux-neptune" in name:
+                    name = "linux-neptune"
+                if "mesa" in name:
+                    name = "mesa"
+                if "jupiter-fan-cont" in name:
+                    name = "jupiter-fan-control"
+                if "steamos-customizations" in name:
+                    name = "steamos-customizations"
+                if "steamos-atomupd-client" in name:
+                    name = "steamos-atomupd"
+
                 if name not in packages or packages[name][-1] < upd.date:
                     packages[name] = (pkg, repo, upd.date)
             upd = upd.prev
