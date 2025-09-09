@@ -140,6 +140,8 @@ def _main():
                 r, args.work, remote, args.user_name, args.user_email
             )
             tags = get_tags(f"{args.work}/{r}", args.version)
+            if args.should_resume:
+                assert tags, f"No tags found in {r}, would start from scratch!"
         all_tags[r] = tags
         repo_data[r] = (trunk, rest)
         pairs.append((trunk, None, tags))
@@ -148,7 +150,9 @@ def _main():
 
     # First, update internal repos
     # In case of failure, we avoid updating jupiter/holo and losing track
-    find_and_push_latest(args.cache, args.work, remote, pairs, push_all)
+    find_and_push_latest(
+        args.cache, args.work, remote, pairs, push_all, args.should_resume
+    )
     if push_all:
         return
 

@@ -573,6 +573,7 @@ def find_and_push_latest(
     remote: str,
     pairs: list[tuple[Repository, Repository | None, dict[str, str]]],
     push_all: bool = True,
+    should_resume: bool = False,
 ):
     all_upds: list[tuple[Repository, Update]] = []
     upds: list[tuple[Repository, Update]] = []
@@ -590,7 +591,11 @@ def find_and_push_latest(
         upds = all_upds
     else:
         for repo, trunk, tags in pairs:
-            for upd, _ in get_upd_todo(tags, repo.latest, repo, trunk):
+            for upd, tag in get_upd_todo(tags, repo.latest, repo, trunk):
+                if should_resume:
+                    assert (
+                        tag
+                    ), f"Found update {repo.version}:{upd.date.isoformat()} starting from scratch! Stopping."
                 upds.append((repo, upd))
 
     # Create list of updated packages
