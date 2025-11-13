@@ -10,6 +10,7 @@ on:
         # Staging seems to be regenerated often, so we want to force push
         description: "Force push on diverge"
         default: false
+  push:
 
 concurrency:
   group: ${{ github.workflow }}
