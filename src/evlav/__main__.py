@@ -109,7 +109,8 @@ def _main():
     parser.add_argument(
         "--user-email",
         type=str,
-        default="evlav@bazzite.gg",
+        # FIXME: find a substitute for this email
+        default="230880801+evlaV-bot@users.noreply.github.com",
         help="The email to use when committing to the git repository.",
     )
     args = parser.parse_args()

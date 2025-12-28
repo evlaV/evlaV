@@ -32,7 +32,7 @@ jobs:
         run: |
           pip install -e .
           git config --global user.name "evlaV bot"
-          git config --global user.email "evlav@bazzite.gg"
+          git config --global user.email "230880801+evlaV-bot@users.noreply.github.com"
 
           echo "https://x-access-token:${{ secrets.PUSH_TOKEN }}@github.com" >> ~/.git-credentials
           git config --global credential.helper store
