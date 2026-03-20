@@ -186,6 +186,8 @@ def extract_sources(fn, tar) -> Sources | None:
                     repo_name = "atomupd-daemon"
                 case x if "dmemcg-booster" in x:
                     repo_name = "dmemcg"
+                case x if "cecd" in x:
+                    repo_name = "cecd"
                 case x if "steamos-networking-tools" in x:
                     # The repo here does not exist/is used
                     continue
