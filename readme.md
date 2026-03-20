@@ -9,7 +9,7 @@ It has two primary functions:
 
 Initially, this tool travered all versions of each package to create internal repositories. However, it was found that all source packages contain all important tags. Traversing all packages just added noise and stale PRs. So now, only the last version is used.
 
-> ![INFO]
+> [!NOTE]
 > Github likes to turn off workflows for repositories that have not had activity in a while. If that happens, open an issue so we can re-enable the action.
 
 ## Usage
