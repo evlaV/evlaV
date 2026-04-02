@@ -160,6 +160,11 @@ def extract_sources(fn, tar) -> Sources | None:
                 repo_name = src.split("#", 1)[0].split("/")[-1].replace(".git", "")
             unpack_name = repo_name
 
+            if repo_name.endswith("-git"):
+                repo_name = repo_name[:-4]
+            if repo_name.endswith(f"-{pkgver}"):
+                repo_name = repo_name[: -len(pkgver) - 1]
+
             # Name fixups for internal repos
             internal_repo = True
             match pkgname:
