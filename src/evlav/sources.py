@@ -143,6 +143,7 @@ def extract_sources(fn, tar) -> Sources | None:
             .replace("${pkgname%-*}", pkgname.rsplit("-", 1)[0])
             .replace("$pkgbase", pkgname)
             .replace("$pkgver", pkgver)
+            .replace("${pkgbase}", pkgname)
         )
 
         assert url or (
