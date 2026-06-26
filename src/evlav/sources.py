@@ -471,6 +471,12 @@ def process_update(
 
             logger.info(f"Extracting sources for {pkg.name}")
             for fn in src.files:
+                # cleanup fn
+                if "libssh2" in src.pkg:
+                    # _name=${pkgname#lib32-}
+                    # $_name-1.11.1-CVE-2026-55200.patch
+                    fn = fn.replace("_$_name", "libssh2")
+
                 member = tar.getmember(f"{src.pkg}/{fn}")
                 member.name = fn  # Prevent path traversal
                 tar.extract(member, pkg_path)
