@@ -171,10 +171,10 @@ def extract_sources(fn, tar) -> Sources | None:
             match pkgname:
                 case x if "linux-neptune" in x:
                     unpack_name = "archlinux-linux-neptune"
-                    if "-kasan" in pkgname or "-devel" in pkgname:
-                        unpack_name = "archlinux-" + pkgname.replace(
-                            "-kasan", ""
-                        ).replace("-devel", "")
+                    if "-kasan" in pkgname:
+                        unpack_name = "archlinux-" + pkgname.replace("-kasan", "")
+                    elif "-devel" in pkgname:
+                        unpack_name = "archlinux-linux-neptune-devel"
                     repo_name = "linux-integration"
                 case "steamos-customizations-jupiter":
                     repo_name = "steamos-customizations"
