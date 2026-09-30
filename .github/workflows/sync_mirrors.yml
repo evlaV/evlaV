@@ -50,3 +50,12 @@ jobs:
             --remote=https://github.com/evlav \
             --update-interval=1 \
             $ARGS
+
+      - name: List work directory on failure
+        if: failure()
+        run: |
+          if [ -d ./work ]; then
+            ls -la ./work
+          else
+            echo "Work directory ./work does not exist"
+          fi

@@ -196,7 +196,7 @@ def extract_sources(fn, tar) -> Sources | None:
                     repo_name = "dmemcg"
                 case x if "cecd" in x:
                     repo_name = "cecd"
-                case x if "steamos-networking-tools" in x:
+                case x if "steamos-networking-tools" in x or "holo-networking-tools" in x:
                     # The repo here does not exist/is used
                     continue
                 case x if "steamos-repair-tool" in x:
@@ -695,6 +695,22 @@ def find_and_push_latest(
                     return None
 
                 tar.extractall(path=work_dir, filter=filter_repo)
+
+                if not os.path.isdir(repo_dir):
+                    entries = sorted(
+                        {
+                            member.name.split("/")[1]
+                            for member in tar.getmembers()
+                            if member.name.startswith(f"{pkg_name}/")
+                            and len(member.name.split("/")) > 1
+                            and member.name.split("/")[1]
+                        }
+                    )
+                    raise RuntimeError(
+                        f"Repository {repo_name} from package {pkg.name}: "
+                        f"expected directory {repo_dir} was not extracted. "
+                        f"Archive entries under {pkg_name}: {', '.join(entries)}"
+                    )
 
                 # Add remote and push everything
                 run(
