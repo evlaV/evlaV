@@ -16,14 +16,14 @@ def _main():
         "--sources",
         type=str,
         default="https://steamdeck-packages.steamos.cloud/archlinux-mirror/sources",
-        help="URL to the sources repository.",
+        help="Base source URL for Holo/Jupiter. Deckard uses its main/staging hotfix URLs.",
     )
     parser.add_argument(
         "--repo",
         type=str,
-        help="Repositories to sync ('holo' or 'jupiter').",
+        help="Repositories to sync (default: holo, jupiter, deckard).",
         nargs="+",
-        default=["holo", "jupiter"],
+        default=["holo", "jupiter", "deckard"],
     )
     parser.add_argument(
         "-v",
@@ -31,7 +31,7 @@ def _main():
         type=str,
         nargs="+",
         default=["main", "staging", "3.5", "3.6", "3.7", "3.8", "3.9"],
-        help="Versions to sync (default: all supported). WARNING: The first version MUST ALWAYS be the trunk version (i.e., main).",
+        help="Versions to sync (default: all supported; Deckard supports main/staging only). WARNING: The first version MUST ALWAYS be the trunk version (i.e., main).",
     )
     parser.add_argument(
         "--force-push",
@@ -140,17 +140,17 @@ def _main():
             repo_paths[r] = prepare_repo(
                 r, args.work, remote, args.user_name, args.user_email
             )
-            tags = get_tags(f"{args.work}/{r}", args.version)
+            tags = get_tags(repo_paths[r], [trunk.version, *(repo.version for repo in rest)])
             if args.should_resume:
                 assert tags, f"No tags found in {r}, would start from scratch!"
         all_tags[r] = tags
         repo_data[r] = (trunk, rest)
         pairs.append((trunk, None, tags))
-        for r in rest:
-            pairs.append((r, trunk, tags))
+        for repo in rest:
+            pairs.append((repo, trunk, tags))
 
     # First, update internal repos
-    # In case of failure, we avoid updating jupiter/holo and losing track
+    # In case of failure, avoid updating package histories and losing track.
     if not args.skip_other_repos:
         find_and_push_latest(
             args.cache, args.work, remote, pairs, push_all, args.should_resume

@@ -115,26 +115,47 @@ def extract_sources(fn, tar) -> Sources | None:
 
     pkgbuild = pkgbuild.read().decode("utf-8")
     sources = []
-    matches = re.findall(
-        r"^ *(?:source|install) *= *(\(.*?(?:\(.*?\).*?)?\)|(?!\().*?$)",
-        pkgbuild,
-        re.DOTALL | re.MULTILINE,
-    )
-    for m in matches:
-        sources.extend(shlex.split(m.strip("()"), comments=True))
-
-    urlm = re.findall(
-        r"^ *url *= *(\(.*?(?:\(.*?\).*?)?\)|(?!\().*?$)",
-        pkgbuild,
-        re.DOTALL | re.MULTILINE,
-    )
+    installs = []
     url = None
-    if urlm:
-        url = shlex.split(urlm[0].strip("()"), comments=True)[0]
+    try:
+        srcinfo = tar.extractfile(f"{pkgname}/.SRCINFO")
+    except KeyError:
+        srcinfo = None
+
+    if srcinfo:
+        for line in srcinfo.read().decode("utf-8").splitlines():
+            key, _, value = line.partition("=")
+            key, value = key.strip(), value.strip()
+            if key == "source" or key.startswith("source_"):
+                sources.append(value)
+            elif key == "install":
+                installs.append(value)
+            elif key == "url":
+                url = value
+    else:
+        matches = re.findall(
+            r"^ *(source|install) *= *(\(.*?(?:\(.*?\).*?)?\)|(?!\().*?$)",
+            pkgbuild,
+            re.DOTALL | re.MULTILINE,
+        )
+        for key, value in matches:
+            (installs if key == "install" else sources).extend(
+                shlex.split(value.strip("()"), comments=True)
+            )
+
+        urlm = re.findall(
+            r"^ *url *= *(\(.*?(?:\(.*?\).*?)?\)|(?!\().*?$)",
+            pkgbuild,
+            re.DOTALL | re.MULTILINE,
+        )
+        if urlm:
+            url = shlex.split(urlm[0].strip("()"), comments=True)[0]
 
     files = []
     repos = []
-    for src in sources:
+    srcname = re.search(r"^ *_srcname *= *[\"']?([A-Za-z0-9_.-]+)[\"']? *(?:#.*)?$", pkgbuild, re.MULTILINE)
+    for src in sources + installs:
+        is_install = src in installs
         src = (
             src.replace("${pkgname%-git}", pkgname.replace("-git", ""))
             .replace("$pkgname", pkgname)
@@ -143,8 +164,11 @@ def extract_sources(fn, tar) -> Sources | None:
             .replace("${pkgname%-*}", pkgname.rsplit("-", 1)[0])
             .replace("$pkgbase", pkgname)
             .replace("$pkgver", pkgver)
+            .replace("${pkgver}", pkgver)
             .replace("${pkgbase}", pkgname)
         )
+        if srcname:
+            src = src.replace("${_srcname}", srcname[1]).replace("$_srcname", srcname[1])
 
         assert url or (
             "${url}" not in src and "$url" not in src
@@ -155,10 +179,11 @@ def extract_sources(fn, tar) -> Sources | None:
 
         # Check for git
         if "git+" in src or "git://" in src:
+            source_url = src.split("::", 1)[-1].split("#", 1)[0].split("?", 1)[0].rstrip("/")
             if "::" in src:
                 repo_name = src.split("::", 1)[0]
             else:
-                repo_name = src.split("#", 1)[0].split("/")[-1].replace(".git", "")
+                repo_name = source_url.rsplit("/", 1)[-1].removesuffix(".git")
             unpack_name = repo_name
 
             if repo_name.endswith("-git"):
@@ -169,6 +194,10 @@ def extract_sources(fn, tar) -> Sources | None:
             # Name fixups for internal repos
             internal_repo = True
             match pkgname:
+                case _ if "/deckardos/" in source_url:
+                    repo_name = source_url.rsplit("/", 1)[-1].removesuffix(".git").removeprefix("deckard-").removesuffix("-valve")
+                    if not pkgname.startswith("qualcomm-"):
+                        repo_name = "deckard-" + repo_name
                 case x if "linux-neptune" in x:
                     unpack_name = "archlinux-linux-neptune"
                     if "-kasan" in pkgname:
@@ -221,7 +250,16 @@ def extract_sources(fn, tar) -> Sources | None:
             and "[@]" not in src
         ):
             # Skip remotes, skip :: which is remotes
-            files.append(src)
+            if is_install:
+                src = os.path.basename(src)
+                try:
+                    tar.getmember(f"{pkgname}/{src}")
+                except KeyError:
+                    # Generated install scripts are not supplied in the archive.
+                    continue
+            src = os.path.normpath(src)
+            if src not in files:
+                files.append(src)
 
     return Sources(pkgname, files=files, repos=repos, pkgbuild=pkgbuild)
 
@@ -431,9 +469,15 @@ def process_update(
         if readme:
             with open(readme, "r") as f:
                 readme_text = f.read()
-                readme_text = readme_text.replace(
-                    "<replace-repo>", repo.branch
-                ).replace("<replace-repo-cap>", repo.branch.capitalize())
+                source_note = "PKGBUILD source URLs are preserved."
+                if pull_remote:
+                    source_note = "PKGBUILD URLs pointing to private Valve repositories are replaced with repositories in this mirror."
+                readme_text = (
+                    readme_text.replace("<replace-repo>", repo.branch)
+                    .replace("<replace-repo-cap>", repo.branch.capitalize())
+                    .replace("<replace-sources>", repo.url)
+                    .replace("<replace-source-note>", source_note)
+                )
             with open(os.path.join(repo_path, "readme.md"), "w") as f:
                 f.write(readme_text)
             srun(["git", "-C", repo_path, "add", "readme.md"])
@@ -463,6 +507,18 @@ def process_update(
             with open(os.path.join(pkg_path, "PKGBUILD"), "w") as f:
                 pkgbuild = src.pkgbuild
                 if pull_remote:
+                    pkgbuild = re.sub(
+                        r"(?:https?://|ssh://git@)gitlab(?:\.internal)?\.steamos\.cloud:?/(?:[A-Za-z0-9_.-]+/)*deckardos/([^/\s'\"#?)]+)",
+                        lambda match: (
+                            pull_remote.rstrip("/") + "/"
+                            + ("" if src.pkg.startswith("qualcomm-") else "deckard-")
+                            + match[1].replace("${pkgname}", src.pkg).replace("$pkgname", src.pkg)
+                            .replace("${pkgbase}", src.pkg).replace("$pkgbase", src.pkg)
+                            .removesuffix(".git").removeprefix("deckard-").removesuffix("-valve")
+                            + (".git" if match[1].endswith(".git") else "")
+                        ),
+                        pkgbuild,
+                    )
                     for pattern in INTERNAL_REPLACE:
                         pkgbuild = re.sub(pattern, pull_remote, pkgbuild)
                 f.write(pkgbuild)
@@ -492,6 +548,7 @@ def process_update(
             "-C",
             repo_path,
             "commit",
+            "--allow-empty",
             "-m",
             upd_text,
             "--date",
@@ -539,7 +596,7 @@ def process_repo(
         for pkg in upd.packages:
             fn = os.path.join(cache, pkg.name)
             if not os.path.exists(fn) and fn not in missing:
-                missing[fn] = repo.url + "/" + pkg.link
+                missing[fn] = repo.url.rstrip("/") + "/" + pkg.link
 
     download_missing(missing)
 
@@ -656,8 +713,9 @@ def find_and_push_latest(
             if "keyring" in name:
                 name = "holo-keyring"
 
-            if name not in packages or packages[name][-1] < upd.date:
-                packages[name] = (pkg, repo, upd.date)
+            key = (repo.branch == "deckard", name)
+            if key not in packages or packages[key][-1] < upd.date:
+                packages[key] = (pkg, repo, upd.date)
 
     logger.info(f"Found {len(packages)} packages to push")
 
@@ -665,11 +723,13 @@ def find_and_push_latest(
     for name, (pkg, repo, _) in packages.items():
         fn = os.path.join(cache, pkg.name)
         if not os.path.exists(fn) and fn not in missing:
-            missing[fn] = repo.url + "/" + pkg.link
+            missing[fn] = repo.url.rstrip("/") + "/" + pkg.link
 
     download_missing(missing)
 
-    for name, (pkg, repo, _) in packages.items():
+    # Different package variants can contain the same Git repository.
+    # Apply older snapshots first so the destination ends at the newest one.
+    for name, (pkg, repo, _) in sorted(packages.items(), key=lambda item: item[1][2]):
         pkg_fn = os.path.join(cache, pkg.name)
 
         with tarfile.open(pkg_fn, "r:gz") as tar:
@@ -713,6 +773,8 @@ def find_and_push_latest(
                     )
 
                 # Add remote and push everything
+                if os.path.isdir(remote) and not os.path.exists(f"{remote}/{repo_name}"):
+                    srun(["git", "init", "--bare", f"{remote}/{repo_name}"])
                 run(
                     [
                         "git",

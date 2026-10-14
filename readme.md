@@ -13,7 +13,7 @@ Initially, this tool travered all versions of each package to create internal re
 > Github likes to turn off workflows for repositories that have not had activity in a while. If that happens, open an issue so we can re-enable the action.
 
 ## Usage
-Clone this repository. Then, it is recommended to run `./cache.sh`. This will use `rclone` to pull down the `holo-main` and `jupiter-main` source packages. `rclone` supports multiple HTTP connections per file, so it is very fast. The total download is around 500GB/600GB at the time of writing this and will take 2-4 hours. The other ~100GB will be pulled from the tool.
+Clone this repository. Then, it is recommended to run `./cache.sh`. This will use `rclone` to pull down the `holo-main` and `jupiter-main` source packages. `rclone` supports multiple HTTP connections per file, so it is very fast. The total download is around 500GB/600GB at the time of writing this and will take 2-4 hours. The other ~100GB will be pulled from the tool. Deckard (Steam Frame) uses separate helpers: `./deckard-cache.sh` caches main and `./deckard-init.sh` initializes the Deckard package repository.
 
 This tool uses a single cache directory instead of one per repo. This was done because `jupiter-3.6` is essentially a copy of `jupiter-main` at the point of split. So most packages are the same, including date and hash. This allows us to use `main` as a trunk and calculate the split point for `3.6`, `3.7`, etc. However, backports do not have the same hash. We make the good-faith assumption that the `PKGBUILD` is the same between backports and the trunk so we only keep one. This means that `rclone` cannot be used to sync all repos as name collisions will cause it to redownload too many files.
 
@@ -31,23 +31,24 @@ pip install -e .
 # for the tool to use. For a github/gitlab org, these repositories will
 # need to be created manually.
 ./init.sh
+./deckard-init.sh
 
 # Optional: use ramdisk scratch dir to avoid scratching your drive
 sudo mkdir /dev/shm/work
 sudo chown $USER /dev/shm/work
 ln -s /dev/shm/work ./work
 
-# Push internal package repos to ./remote
+# Push Holo/Jupiter internal Git repos to ./remote
 # Latest version only, with `git push --mirror`. Reflects internal repo 1-1
 # Old branches from old packages might be missing;
 # that's okay, it prevents drift and important tags are in all source packages
 evlav --push-other-repos
-# Reconstruct jupiter and holo histories
+# Reconstruct holo, jupiter, and deckard histories
 evlav --skip-other-repos
 
-# For incremental updates, calculate missing updates in jupiter/holo, then:
+# For incremental updates, calculate missing updates in all package histories, then:
 # 1) For each latest version of an updated package, mirror its internal repo
-# 2) Only if successful, update holo/jupiter to reflect the last version
+# 2) Only if successful, update package histories to reflect the last version
 # (avoids missing updates in case of a crash)
 # Running from scratch, this is equivalent to the commands above.
 evlav

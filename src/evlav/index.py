@@ -1,11 +1,17 @@
 import logging
 import os
+import subprocess
 from datetime import datetime
 from html.parser import HTMLParser
 from io import BufferedReader
 from typing import Literal, NamedTuple
 
 logger = logging.getLogger(__name__)
+
+DECKARD_SOURCES = {
+    "main": "https://holo-packages.steamos.cloud/archlinux-deckard-hotfixes/source/",
+    "staging": "https://holo-packages.steamos.cloud/archlinux-deckard-hotfixes/staging/source/",
+}
 
 
 class Package(NamedTuple):
@@ -158,14 +164,22 @@ def get_repos(
 ) -> list[Repository]:
     repos = []
 
+    if repo == "deckard":
+        unsupported = [v for v in versions if v not in DECKARD_SOURCES]
+        if unsupported:
+            logger.info(f"Skipping unsupported Deckard versions: {', '.join(unsupported)}")
+        versions = [v for v in versions if v in DECKARD_SOURCES]
+        if not versions:
+            raise ValueError("Deckard requires at least one supported version: main or staging")
+
     for v in versions:
         fn = os.path.join(cache, f"{repo}-{v}.html")
+        url = DECKARD_SOURCES[v] if repo == "deckard" else f"{sources.rstrip('/')}/{repo}-{v}/"
 
         if not skip_existing or not os.path.exists(fn):
-            url = f"{sources}/{repo}-{v}/"
             logger.info(f"Downloading index for {repo}:{v} from {url}")
             os.makedirs(cache, exist_ok=True)
-            os.system(f"curl -sSL {url} -o {fn}")
+            subprocess.run(["curl", "-fsSL", url, "-o", fn], check=True)
         else:
             logger.info(f"Using cached index for {repo}:{v}")
 
@@ -177,7 +191,7 @@ def get_repos(
                 name=f"{repo}:{v}",
                 branch=repo,
                 version=v,
-                url=f"{sources}/{repo}-{v}/",
+                url=url,
                 latest=timeline[-1],
             )
         )

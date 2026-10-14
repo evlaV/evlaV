@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   sync-mirrors:
-    name: Sync Jupiter/Holo Mirrors
+    name: Sync Holo/Jupiter/Deckard Mirrors
     runs-on: ubuntu-latest
     continue-on-error: false
     permissions:
@@ -37,7 +37,7 @@ jobs:
           echo "https://x-access-token:${{ secrets.PUSH_TOKEN }}@github.com" >> ~/.git-credentials
           git config --global credential.helper store
 
-      - name: Sync Holo/Jupiter Mirrors
+      - name: Sync Holo/Jupiter/Deckard Mirrors
         run: |
           ARGS=()
           if [ "${{ github.event.inputs.force }}" != "true" ]; then
@@ -49,7 +49,7 @@ jobs:
             --replace-url="https://github.com/evlav" \
             --remote=https://github.com/evlav \
             --update-interval=1 \
-            $ARGS
+            "${ARGS[@]}"
 
       - name: List work directory on failure
         if: failure()
