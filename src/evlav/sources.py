@@ -87,6 +87,15 @@ def infer_version(fn: str) -> str:
     return suffix
 
 
+def get_deckard_repo_name(source_name: str, pkgname: str) -> str:
+    name = source_name.removesuffix(".git").removeprefix("deckard-").removesuffix("-valve")
+    if not pkgname.startswith("qualcomm-"):
+        name = "deckard-" + name
+    if name == "deckard-linux-valve-publicly-released-branches":
+        return "deckard-linux-no-oopsies"
+    return name
+
+
 def extract_sources(fn, tar) -> Sources | None:
     # File is a .tar.gz archive containing a 'PKGBUILD' file
     # The PKGBUILD is a bash script that contains a sources variable
@@ -195,9 +204,7 @@ def extract_sources(fn, tar) -> Sources | None:
             internal_repo = True
             match pkgname:
                 case _ if "/deckardos/" in source_url:
-                    repo_name = source_url.rsplit("/", 1)[-1].removesuffix(".git").removeprefix("deckard-").removesuffix("-valve")
-                    if not pkgname.startswith("qualcomm-"):
-                        repo_name = "deckard-" + repo_name
+                    repo_name = get_deckard_repo_name(source_url.rsplit("/", 1)[-1], pkgname)
                 case x if "linux-neptune" in x:
                     unpack_name = "archlinux-linux-neptune"
                     if "-kasan" in pkgname:
@@ -511,10 +518,11 @@ def process_update(
                         r"(?:https?://|ssh://git@)gitlab(?:\.internal)?\.steamos\.cloud:?/(?:[A-Za-z0-9_.-]+/)*deckardos/([^/\s'\"#?)]+)",
                         lambda match: (
                             pull_remote.rstrip("/") + "/"
-                            + ("" if src.pkg.startswith("qualcomm-") else "deckard-")
-                            + match[1].replace("${pkgname}", src.pkg).replace("$pkgname", src.pkg)
-                            .replace("${pkgbase}", src.pkg).replace("$pkgbase", src.pkg)
-                            .removesuffix(".git").removeprefix("deckard-").removesuffix("-valve")
+                            + get_deckard_repo_name(
+                                match[1].replace("${pkgname}", src.pkg).replace("$pkgname", src.pkg)
+                                .replace("${pkgbase}", src.pkg).replace("$pkgbase", src.pkg),
+                                src.pkg,
+                            )
                             + (".git" if match[1].endswith(".git") else "")
                         ),
                         pkgbuild,

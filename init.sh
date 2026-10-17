@@ -45,6 +45,7 @@ prepare_repo "holo"
 
 # Jupiter sub-repos
 prepare_repo mesa
+prepare_repo linux-firmware-holo
 prepare_repo linux-firmware-neptune
 prepare_repo linux-integration
 

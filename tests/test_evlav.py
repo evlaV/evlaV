@@ -155,9 +155,18 @@ class MetadataTests(unittest.TestCase):
         src = extract("linux-618-deckard", pkgbuild, branch="deckard")
         self.assertEqual(src.repos[0][:2], ("deckard-linux", "archlinux-linux-deckard"))
 
+    def test_holo_firmware_uses_new_upstream_mirror_name(self):
+        source = "git+ssh://git@gitlab.steamos.cloud/holo/linux-firmware-holo.git#tag=20261005.1"
+        for metadata in (None, f"source = {source}\n"):
+            with self.subTest(srcinfo=metadata is not None):
+                src = extract("linux-firmware-holo", f'source=("{source}")\n', metadata)
+                self.assertEqual(src.repos, [("linux-firmware-holo", "linux-firmware-holo", source)])
+
     def test_deckardos_names_come_from_url_and_keep_archive_alias(self):
         for package, alias, name, target in (
             ("linux-tools", "linux", "linux-valve", "deckard-linux"),
+            ("linux-72-deckard", "archlinux-linux-deckard", "linux-valve-publicly-released-branches", "deckard-linux-no-oopsies"),
+            ("linux-api-headers", "linux-1", "linux-valve-publicly-released-branches", "deckard-linux-no-oopsies"),
             ("deckard-mesa-linux", "mesa", "mesa-valve", "deckard-mesa"),
             ("linux-source", None, "linux-valve", "deckard-linux"),
             ("linux-tools", "linux", "linux-valve-tools", "deckard-linux-valve-tools"),
@@ -365,6 +374,7 @@ class LocalChainTests(unittest.TestCase):
             ("deckard-audio-config", "${pkgname}.git", "deckard-audio-config"),
             ("qualcomm-android-graphics-driver", "qualcomm-android-graphics-driver-valve.git", "qualcomm-android-graphics-driver"),
             ("rtkit", "rtkit.git?_commit=${_commit}", "deckard-rtkit"),
+            ("linux-72-deckard", "linux-valve-publicly-released-branches.git", "deckard-linux-no-oopsies"),
         )
         packages = [
             self.package(name, str(day), day, use_metadata=False,
@@ -385,30 +395,26 @@ class LocalChainTests(unittest.TestCase):
                 self.assertIn("?_commit=${_commit}", pkgbuild)
             self.assertTrue((self.remote / target).is_dir())
 
-    def test_github_initializer_creates_missing_public_repos_without_pushing(self):
-        binaries = self.root / "bin"
-        binaries.mkdir()
-        capture = self.root / "gh-args"
-        gh = binaries / "gh"
-        gh.write_text('''#!/bin/bash
-printf '%s\\t' "$@" >> "$CAPTURE_ARGS"
-printf '\\n' >> "$CAPTURE_ARGS"
-if [ "$2" = "view" ]; then
-    [ "$3" = "evlav/deckard-linux" ]
-fi
-''')
-        gh.chmod(0o755)
-        env = dict(os.environ, PATH=f"{binaries}:{os.environ['PATH']}", CAPTURE_ARGS=str(capture))
-        subprocess.run(["bash", str(ROOT / "deckard-init.sh")],
-                       cwd=self.root, capture_output=True, text=True, env=env, check=True)
-        calls = [line.rstrip('\t').split('\t') for line in capture.read_text().splitlines()]
-        creates = [call for call in calls if call[:2] == ["repo", "create"]]
-        self.assertIn(["repo", "create", "evlav/deckard", "--public"], creates)
-        self.assertIn(["repo", "create", "evlav/qualcomm-android-graphics-driver", "--public"], creates)
-        self.assertNotIn(["repo", "create", "evlav/deckard-linux", "--public"], creates)
-        self.assertTrue(all(call[:2] in (["repo", "view"], ["repo", "create"]) for call in calls))
-        self.assertTrue(all(call[-1] == "--public" and len(call) == 4 for call in creates))
-        self.assertFalse(any(self.remote.iterdir()))
+    def test_initializers_create_local_mirrors_and_preserve_existing_repos(self):
+        for script, expected in (
+            ("init.sh", "linux-firmware-holo"),
+            ("deckard-init.sh", "deckard-linux-no-oopsies"),
+        ):
+            for destination in (None, self.root / f"{script} remote with spaces"):
+                with self.subTest(script=script, destination=destination):
+                    command = ["bash", str(ROOT / script)]
+                    if destination is not None:
+                        command.append(str(destination))
+                    remote = destination if destination is not None else self.remote
+                    subprocess.run(command, cwd=self.root, capture_output=True,
+                                   text=True, check=True)
+                    mirror = remote / expected
+                    self.assertEqual(git("--git-dir", mirror, "rev-parse", "--is-bare-repository"), "true")
+                    marker = mirror / "preserve-me"
+                    marker.write_text("existing repository")
+                    subprocess.run(command, cwd=self.root, capture_output=True,
+                                   text=True, check=True)
+                    self.assertEqual(marker.read_text(), "existing repository")
 
     def test_cache_helper_only_targets_deckard_main(self):
         binaries = self.root / "bin"

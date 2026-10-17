@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+REMOTE=${1:-remote}
+
 prepare_repo() {
     if [ -d "$REMOTE/$1" ]; then
         echo "Repository $1 already exists."
@@ -25,6 +27,7 @@ prepare_repo "deckard-fan-control"
 prepare_repo "deckard-foxnetstatsd"
 prepare_repo "deckard-linux"
 prepare_repo "deckard-linux-firmware"
+prepare_repo "deckard-linux-no-oopsies"
 prepare_repo "deckard-mesa"
 prepare_repo "deckard-powerbuttond"
 prepare_repo "deckard-rtkit"
